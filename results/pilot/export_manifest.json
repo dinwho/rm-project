@@ -1,0 +1,21 @@
+{
+  "complete_run": "../../artifacts/pilot",
+  "omitted": [
+    "checkpoint weights",
+    "source snapshots"
+  ],
+  "checkpoint_sha256": {
+    "models/dqn_no_wind/seed_11/best.pt": "74733fcbca5ebf84f75e0d99a125eb0be1f681e07e5d7fc6efcc59565de16a3a",
+    "models/dqn_no_wind/seed_11/last.pt": "ba3c2f2de1975bfc3da78cf077be66cc8a8549fefeaadd9fbc9e597024b5c1b8",
+    "models/dqn_no_wind/seed_22/best.pt": "7d7d8d2855ac1698f7d3c6f72bed93291df0c1e4c4c46414eb33383220243b2a",
+    "models/dqn_no_wind/seed_22/last.pt": "3f2c79441771cd7ca3b835e44473870cbb33ebe1905973986bac607cbc1360a0",
+    "models/dqn_no_wind/seed_33/best.pt": "59058581cb3cb5e06e31f5608bf09f2425dfe045b676d3f534b225dcb2be971b",
+    "models/dqn_no_wind/seed_33/last.pt": "300129a66af231a3fbf2cadaf325deb876b44e91bef3ebc8e3b1145b3edbca38",
+    "models/dqn/seed_11/best.pt": "799fa67cd1a44b1c266ef4ea579c764480cdf3777fceea5a7dda2b9ddac476d9",
+    "models/dqn/seed_11/last.pt": "7759973c0f941b0afe26cff7e6203be2d22ff9dfaac29f7e027b7a419e563901",
+    "models/dqn/seed_22/best.pt": "2b68f9f6fa446e1ed27c73175f4216336f7e0661daa3a103c2f9faf34defff4e",
+    "models/dqn/seed_22/last.pt": "42ab1b1c3cee6ebfa643ab0ed428f631b9df9ea01a039da9aa68b6e90e6ca43d",
+    "models/dqn/seed_33/best.pt": "307d5db287ccb1bb506db6d82870ed23363aadac0ff8aff2f4bd3a1362810170",
+    "models/dqn/seed_33/last.pt": "3fabaaa0a3607bdc9c7d7ba13c1796f12571118880cdf6bb721f2aacee9b7069"
+  }
+}

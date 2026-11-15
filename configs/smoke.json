@@ -1,0 +1,11 @@
+{
+  "name": "smoke",
+  "environment": {},
+  "training": {
+    "steps": 600, "seeds": [11], "budgets": [2, 4, 6],
+    "batch_size": 32, "replay_capacity": 2000, "learning_starts": 100,
+    "train_every": 4, "target_every": 200, "validation_every": 300,
+    "validation_worlds": 3, "gamma": 0.99, "learning_rate": 0.0003
+  },
+  "evaluation": {"worlds": 6, "bootstrap_samples": 200}
+}

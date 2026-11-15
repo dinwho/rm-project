@@ -1,0 +1,11 @@
+{
+  "name": "pilot",
+  "environment": {},
+  "training": {
+    "steps": 10000, "seeds": [11, 22, 33], "budgets": [2, 4, 6],
+    "batch_size": 64, "replay_capacity": 10000, "learning_starts": 500,
+    "train_every": 4, "target_every": 500, "validation_every": 2500,
+    "validation_worlds": 8, "gamma": 0.99, "learning_rate": 0.0003
+  },
+  "evaluation": {"worlds": 24, "bootstrap_samples": 1000}
+}

@@ -1,0 +1,21 @@
+{
+  "validation": {
+    "pytest": "65 passed",
+    "browser": "Live and offline Chromium checks passed, including mobile layout",
+    "pilot_episodes": 720,
+    "pilot_invalid_allocations": 0
+  },
+  "demo_artifacts": {
+    "demo/demo.html": "0b0fec9f9edf34c2eaecef51f33ce78c1fb704be7358bdc853ee98d56f259ba2",
+    "demo/preview.png": "0fd498c86a2a9f67ca128a68b3a8386b185f68477d19fba325b0d470a6468e45",
+    "demo/preview-mobile.png": "b67b81d1e962544076f1752b4c6ba8d757876073fe5e66ed558bfcee930cc1cd",
+    "demo/simple_demo.gif": "a6e1c4b64b987581f7c50eec1ba704990c613c62810a04fd2ea3384d0e776294"
+  },
+  "full_run": "artifacts/pilot",
+  "compact_results": "results/pilot",
+  "beginner_guide": {
+    "path": "docs/BEGINNERS_GUIDE.md",
+    "source_excerpts_checked": 19,
+    "runnable_examples_verified": 2
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "research",
+  "environment": {},
+  "training": {
+    "steps": 200000, "seeds": [11, 22, 33, 44, 55], "budgets": [2, 4, 6],
+    "batch_size": 64, "replay_capacity": 20000, "learning_starts": 1000,
+    "train_every": 4, "target_every": 1000, "validation_every": 10000,
+    "validation_worlds": 20, "gamma": 0.99, "learning_rate": 0.0003
+  },
+  "evaluation": {"worlds": 120, "bootstrap_samples": 2000}
+}

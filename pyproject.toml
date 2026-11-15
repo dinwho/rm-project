@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wildfire-crmab"
+version = "0.1.0"
+description = "Spatially coupled CRMAB firebreak allocation with masked DQN"
+requires-python = ">=3.11"
+dependencies = ["numpy>=2.1,<3", "torch>=2.6,<3", "gymnasium>=1.0,<2", "matplotlib>=3.9,<4"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+wildfire-crmab = "wildfire_crmab.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

@@ -1,0 +1,8 @@
+{
+  "best_step": 600,
+  "best_validation_return": -9.520360441760552,
+  "optimizer_updates": 126,
+  "episodes": 22,
+  "observe_wind": true,
+  "selection": "maximum mean discounted validation return; earlier checkpoint wins ties"
+}

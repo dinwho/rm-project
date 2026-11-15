@@ -1,0 +1,122 @@
+[
+  {
+    "seed": 1000000000,
+    "budget": 2,
+    "wind": null
+  },
+  {
+    "seed": 1000000000,
+    "budget": 4,
+    "wind": null
+  },
+  {
+    "seed": 1000000000,
+    "budget": 6,
+    "wind": null
+  },
+  {
+    "seed": 1000000001,
+    "budget": 2,
+    "wind": null
+  },
+  {
+    "seed": 1000000001,
+    "budget": 4,
+    "wind": null
+  },
+  {
+    "seed": 1000000001,
+    "budget": 6,
+    "wind": null
+  },
+  {
+    "seed": 1000000002,
+    "budget": 2,
+    "wind": null
+  },
+  {
+    "seed": 1000000002,
+    "budget": 4,
+    "wind": null
+  },
+  {
+    "seed": 1000000002,
+    "budget": 6,
+    "wind": null
+  },
+  {
+    "seed": 1000000003,
+    "budget": 2,
+    "wind": null
+  },
+  {
+    "seed": 1000000003,
+    "budget": 4,
+    "wind": null
+  },
+  {
+    "seed": 1000000003,
+    "budget": 6,
+    "wind": null
+  },
+  {
+    "seed": 1000000004,
+    "budget": 2,
+    "wind": null
+  },
+  {
+    "seed": 1000000004,
+    "budget": 4,
+    "wind": null
+  },
+  {
+    "seed": 1000000004,
+    "budget": 6,
+    "wind": null
+  },
+  {
+    "seed": 1000000005,
+    "budget": 2,
+    "wind": null
+  },
+  {
+    "seed": 1000000005,
+    "budget": 4,
+    "wind": null
+  },
+  {
+    "seed": 1000000005,
+    "budget": 6,
+    "wind": null
+  },
+  {
+    "seed": 1000000006,
+    "budget": 2,
+    "wind": null
+  },
+  {
+    "seed": 1000000006,
+    "budget": 4,
+    "wind": null
+  },
+  {
+    "seed": 1000000006,
+    "budget": 6,
+    "wind": null
+  },
+  {
+    "seed": 1000000007,
+    "budget": 2,
+    "wind": null
+  },
+  {
+    "seed": 1000000007,
+    "budget": 4,
+    "wind": null
+  },
+  {
+    "seed": 1000000007,
+    "budget": 6,
+    "wind": null
+  }
+]

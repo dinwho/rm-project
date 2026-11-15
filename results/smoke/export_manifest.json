@@ -1,0 +1,13 @@
+{
+  "complete_run": "../../artifacts/smoke",
+  "omitted": [
+    "checkpoint weights",
+    "source snapshots"
+  ],
+  "checkpoint_sha256": {
+    "models/dqn_no_wind/seed_11/best.pt": "f14842b1433d19243f1d45f11ffe1beb2876662ca9cf80a9977654208330548a",
+    "models/dqn_no_wind/seed_11/last.pt": "9487814692266ad1d46755849716cc268fa82779ce9f9a42934667aba24b1ae2",
+    "models/dqn/seed_11/best.pt": "3d0c5bbb245f36a4fb29084171c4097e94c5c60ea3959f75cdeba8317b93bf78",
+    "models/dqn/seed_11/last.pt": "cb4b671a6188e02fb1e71aa3d8308c065221a7e6722869cb5b4febd63c4b8274"
+  }
+}
