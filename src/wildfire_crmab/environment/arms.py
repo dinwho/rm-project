@@ -1,4 +1,4 @@
-"""Fixed construction opportunities and their evolving physical neighbourhoods."""
+"""Construction-site arms and their evolving physical neighbourhoods."""
 
 from dataclasses import dataclass
 import numpy as np
@@ -35,7 +35,10 @@ class CandidateArms:
     def __init__(self, config: EnvironmentConfig):
         self.config = config
         half = config.segment_length // 2
-        centers = range(half + 1, config.grid_size - half, config.candidate_stride)
+        # Every physical cell is a default arm, including boundary anchors. The
+        # sparse legacy geometry is explicit so old experiments remain replayable.
+        centers = (range(config.grid_size) if config.placement_mode == "cells" else
+                   range(half + 1, config.grid_size - half, config.candidate_stride))
         segments = []
         for row in centers:
             for col in centers:

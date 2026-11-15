@@ -5,6 +5,7 @@ from wildfire_crmab.environment.env import WildfireEnv
 from wildfire_crmab.agents.dqn import DQNAgent
 from wildfire_crmab.agents.baselines import make_baseline
 from wildfire_crmab.agents.checkpoints import catalogue_metadata
+from wildfire_crmab.config import budget_scale
 from wildfire_crmab.utils.io import write_json, write_csv
 from .scenarios import scenario_suite
 from .runner import run_episode
@@ -13,7 +14,7 @@ from .report import report
 
 def evaluate(config, output):
     t = config["training"]
-    scale = max(1, *t["budgets"], config["environment"]["initial_budget"])
+    scale = budget_scale(config)
     suite = scenario_suite("test", config["evaluation"]["worlds"], t["budgets"])
     write_json(output/"evaluation"/"scenarios.json", [asdict(s) for s in suite])
     rows = []

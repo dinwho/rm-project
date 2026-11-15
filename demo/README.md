@@ -1,67 +1,52 @@
 # Interactive research demo
 
-For a simpler demonstration, use **[the Python-only demo](SIMPLE_DEMO.md)** and
-its [animation](simple_demo.gif). The dashboard below is an optional detailed view.
+Start with the **[simple Python demo](SIMPLE_DEMO.md)** and its
+[animation](simple_demo.gif). This browser view is an optional inspector.
 
-Open **[demo.html](demo.html)** directly in a browser for the portable version.
-It contains actual simulator replays for world 42, budget 6, all six policies,
-saved DQN Q-values, architecture details and pilot results. It requires no server,
-network or Python once built. The file is a frozen replay, not JavaScript training
-or a second implementation of the simulator.
+Open **[demo.html](demo.html)** directly. It contains real simulator replays for
+seed 42 in the fixed-scenario cell-construction experiment. Available DQN weights
+are embedded as replay data when the file is built; missing models are labelled
+unavailable. The HTML performs playback, not training or another fire simulation.
 
-To explore different seeds and budgets, run from `research`:
+For live episodes, run from `research`:
 
 ```bash
 .venv/bin/python demo/server.py --port 8765
 ```
 
-Then open **http://127.0.0.1:8765**. This server runs the actual Python environment
-and PyTorch policy to generate each requested episode; Play, Next and the timeline
-inspect that generated trajectory. The server listens only on localhost. Stop it
-with Ctrl+C. It loads validation-selected seed-11 pilot weights, or clearly labelled
-smoke weights if pilot weights do not exist; it never substitutes an untrained model.
+Open **http://127.0.0.1:8765**; stop the server with Ctrl+C. The default is the wind
+heuristic, which needs no saved weights. The server uses the actual Python
+simulator and policy. All policies use `configs/fixed.json` so comparisons face
+the same layout, ignition and wind; the seed changes the fire-spread draws.
 
-## What to show
+Each arm is a cell. One cell can be cleared before each fire update. Clearing
+persists, cannot extinguish burning cells, and can form connected barriers.
+No episode cap is the default. Optional finite caps are available for baselines;
+the diagnostic DQN is restricted to its training setting without an episode cap.
 
-1. **Simulation:** choose a policy, step once, and inspect the simultaneous subset,
-   persistent firebreaks, material accounting and restless fire evolution. Select
-   an arm to inspect construction status, eligibility and local conditions.
-2. **Allocation values:** see actual Q outputs for the best five feasible subsets,
-   the number of masked actions and the checkpoint used.
-3. **DQN model and training:** expand this section to follow the map/arm/context inputs through the actual network and
-   read the replay/target update procedure. The architecture can be expanded.
-4. **Pilot results:** expand this section to compare all six policies and see recorded validation
-   trajectories from three training seeds for each DQN variant.
-5. Switch between the two DQNs on the same seed. The observed wind disappears for
-   the unaware model, while actual wind stays the same.
+To inspect DQN, train the fixed experiment into `artifacts/continuous_fixed`.
+The demo loads only the matching validation-selected `seed_11/best.pt` checkpoint,
+never the historical fixed-segment weights. Expand **DQN model and training** for
+its actual architecture and five best feasible Q-values. Expand **Fixed-scenario
+diagnostic results** for the new experiment's results when available. Historical
+pilot results are not mixed into this display.
 
-The protected asset and vegetation are synthetic. Model inference in the demo does
-not continue training. The demo uses existing learned checkpoints and does not
-claim DQN outperforms the heuristics.
-
-## Files
+The two DQNs face the same wind-driven simulator; the unaware model gets zero in
+its explicit wind inputs. Fixed wind is only an initial learning diagnostic and
+cannot demonstrate generalization across wind conditions. This demo makes no
+claim that DQN learned a successful perimeter.
 
 | File | Purpose |
 | --- | --- |
-| `engine.py` | Shared research simulator/policy adapter and replay generation |
-| `server.py` | Standard-library local HTTP server and two read-only API routes |
-| `static/index.html` | Simulation, model and results views |
-| `static/styles.css` | Responsive visual layout |
-| `static/app.js` | Timeline, drawing, policy selection and data display |
-| `build_snapshot.py` | Embed real replays and UI into portable `demo.html` |
-| `check_browser.py` | Live/offline Chromium interaction and mobile checks |
-| `preview.png` | Browser screenshot of the tested demo |
+| `simple_demo.py` | Small Python script that saves one episode as a GIF |
+| `engine.py` | Real simulator, model loading, replay data and diagnostic results |
+| `server.py` | Local standard-library server and read-only API routes |
+| `static/` | Plain HTML, CSS and JavaScript playback interface |
+| `build_snapshot.py` | Freeze real replays into portable `demo.html` |
+| `check_browser.py` | Optional browser checks |
 
-Regenerate the portable demo after training:
+Regenerate the offline file after training:
 
 ```bash
 .venv/bin/python demo/build_snapshot.py
-```
-
-Optional browser QA (server must be running):
-
-```bash
-.venv/bin/python -m pip install playwright
-.venv/bin/python -m playwright install chromium
-.venv/bin/python demo/check_browser.py
 ```

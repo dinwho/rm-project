@@ -1,62 +1,61 @@
 # The simple demo
 
-Open **[simple_demo.gif](simple_demo.gif)**. This is an animation from the actual
-Python simulator and saved DQN. There is no dashboard or web framework to explain.
+Open **[simple_demo.gif](simple_demo.gif)**. It shows the actual simulator using
+the **wind placement heuristic**, a simple rule that clears a currently threatened
+cell. The GIF is not evidence that DQN has learned containment.
 
-The short script is **[simple_demo.py](simple_demo.py)**. It does four things:
-
-1. Loads a trained policy and its matching environment.
-2. Starts one incident with one ignition and six material units.
-3. Repeatedly asks the policy for a feasible allocation, then advances the simulator.
-4. Saves the resulting grid images as a GIF using Matplotlib.
-
-Run it from `research`:
+Run from `research`:
 
 ```bash
 .venv/bin/python demo/simple_demo.py
 ```
 
-The title shows the physical interval, remaining materials, and arms constructed
-during the last interval. Green cells contain vegetation; orange cells are burning;
-dark cells have burned; tan cells are persistent firebreaks; blue cells are the
-settlement. One material unit builds one three-cell segment. At most two segments
-can be constructed in one interval.
+Each grid cell is one candidate construction arm. At each interval the policy
+can clear **one unburned vegetation cell**, or wait. The fire then advances once.
+Cleared cells stay cleared and can join into continuous lines or perimeters.
+There is no episode-wide construction cap; time, eligibility and the one-cell
+capacity still limit construction. Burning and already-cleared cells are invalid.
 
-## A short explanation you can give while showing it
+The title shows the interval, number of constructed cells and last construction.
+Green is vegetation, orange is active fire, dark is burned vegetation, and tan is
+a permanent firebreak. A cell ID is `row * grid_size + column`, starting at zero.
 
-> “Each arm is a candidate firebreak segment. The DQN receives the current grid,
-> arm information, wind, time and remaining budget. It chooses one feasible
-> allocation, which can contain up to two segments. The simulator constructs those
-> segments together and then advances all fire by one interval. The firebreaks
-> persist, and fire keeps evolving around unselected candidates. During training,
-> rewards penalize newly burned vegetation, clearing and settlement damage.
-> This animation uses an already trained model.”
+## An explanation you can give
 
-If asked about the animation code: **“Matplotlib displays the grid images returned
-by the existing environment. It does not implement another simulator or learner.”**
+> “The simulator updates the fire whether we build or wait. Each eligible cell is
+> an arm that we can activate once by clearing it. Construction costs vegetation,
+> so the reward penalizes both clearing and new burning. Adjacent cleared cells
+> can block spread. DQN learns which valid cell to clear, or whether to wait.
+> This particular animation uses the wind heuristic; I can load a trained DQN
+> separately.”
 
-The key interaction in the script is:
+The short [script](simple_demo.py) calls [engine.py](engine.py) to run the real
+simulator, then uses Matplotlib to display the returned grid images. The central
+interaction in the engine is:
 
 ```python
-action = agent.act(observation, info["action_mask"])
-selected_arms = env.allocations.decode(action)
-observation, reward, terminated, truncated, info = env.step(action)
+action = policy.act(obs, mask)
+obs, previous_reward, terminated, truncated, info = env.step(action)
 ```
 
-The first line chooses a valid complete allocation. The second tells us which
-candidate arms it contains. The third performs construction and one fire update.
+The policy chooses a feasible action. `step` performs that construction and one
+shared fire update. The animation does not create another simulator or train DQN.
 
-## Optional comparisons
-
-Keep seed 42 to use the same world and randomness:
+## Compare policies on the same incident
 
 ```bash
-.venv/bin/python demo/simple_demo.py --policy dqn_no_wind --output demo/unaware_demo.gif
 .venv/bin/python demo/simple_demo.py --policy random --output demo/random_demo.gif
-.venv/bin/python demo/simple_demo.py --policy wind_heuristic --output demo/heuristic_demo.gif
+.venv/bin/python demo/simple_demo.py --policy no_intervention --output demo/no_construction.gif
+.venv/bin/python demo/simple_demo.py --policy dqn --output demo/dqn_demo.gif
+.venv/bin/python demo/simple_demo.py --policy dqn_no_wind --output demo/unaware_demo.gif
 ```
 
-This is one illustrative episode, not an evaluation result. The pilot found that
-the placement heuristics outperformed DQN. The [full beginner guide](../docs/BEGINNERS_GUIDE.md)
-explains learning and evaluation in detail. The earlier browser dashboard remains
-available as an optional detailed inspector.
+DQN requires matching saved weights at
+`artifacts/continuous_fixed/models/<policy>/seed_11/best.pt`. If they are absent,
+the script says so; it never substitutes the old segment policy or an untrained
+network. All policies use `configs/fixed.json` and the same seed (42 by default).
+Different seeds provide fresh fire-spread draws while this diagnostic keeps layout,
+ignition and wind fixed. A single animation is illustrative, not an evaluation.
+
+The [browser inspector](README.md) is optional. It adds a timeline and the actual
+DQN action values when weights are available.

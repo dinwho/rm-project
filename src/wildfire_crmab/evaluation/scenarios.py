@@ -1,4 +1,8 @@
-"""Fixed held-out seed namespaces, with common worlds across budgets."""
+"""Held-out random fields shared across policies and budget regimes.
+
+With a fixed layout, ignition and wind in EnvironmentConfig, these seeds vary
+only the fire's spread randomness. They do not introduce unseen layouts.
+"""
 from wildfire_crmab.environment.scenario import Scenario
 
 def scenario_suite(split, worlds, budgets):

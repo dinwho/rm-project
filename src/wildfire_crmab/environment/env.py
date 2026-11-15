@@ -19,7 +19,7 @@ class WildfireEnv(gym.Env):
         super().__init__()
         self.config = config or EnvironmentConfig()
         self.observe_wind = observe_wind
-        self.budget_scale = max(1, budget_scale, self.config.initial_budget)
+        self.budget_scale = max(1, budget_scale, self.config.initial_budget or 0)
         if render_mode not in (None, "rgb_array"):
             raise ValueError("Only rgb_array rendering is supported")
         self.render_mode = render_mode
@@ -30,7 +30,7 @@ class WildfireEnv(gym.Env):
         self.observation_space = spaces.Dict({
             "map": spaces.Box(0, 1, (6, n, n), np.float32),
             "arms": spaces.Box(0, 1, (self.arms.count, self.arms.feature_count), np.float32),
-            "context": spaces.Box(np.array([-1, -1, 0, 0], np.float32), np.ones(4, np.float32)),
+            "context": spaces.Box(np.array([-1, -1, -1, 0], np.float32), np.ones(4, np.float32)),
         })
         self.finished = True
 
@@ -39,7 +39,7 @@ class WildfireEnv(gym.Env):
         scenario = (options or {}).get("scenario")
         if scenario is None:
             scenario = Scenario(int(self.np_random.integers(0, 2**31)), self.config.initial_budget)
-        if not isinstance(scenario, Scenario) or scenario.budget > self.budget_scale:
+        if not isinstance(scenario, Scenario) or (scenario.budget is not None and scenario.budget > self.budget_scale):
             raise ValueError("Scenario budget must fit the fixed observation budget_scale")
         self.scenario = scenario
         self.world = generate_world(self.config, scenario)
@@ -52,6 +52,7 @@ class WildfireEnv(gym.Env):
         self.firebreak = np.zeros_like(self.settlement)
         self.built = np.zeros(self.arms.count, dtype=bool)
         self.budget = scenario.budget
+        self.budget_used = 0
         self.step_number = 0
         self.total_reward = 0.0
         self.finished = False
@@ -77,7 +78,8 @@ class WildfireEnv(gym.Env):
                          self.fire_age / self.config.burn_duration,
                          self.ever_burned, self.firebreak, self.settlement)).astype(np.float32)
         wind = self.wind if self.observe_wind else np.zeros(2, dtype=np.float32)
-        context = np.array([*wind, self.budget/self.budget_scale,
+        budget_fraction = -1.0 if self.budget is None else self.budget/self.budget_scale
+        context = np.array([*wind, budget_fraction,
                             1-self.step_number/self.config.max_steps], dtype=np.float32)
         features = self.arms.features(self.fuel, self.fire_age, self.ever_burned,
                                      self.firebreak, self.settlement, self.built)
@@ -98,7 +100,9 @@ class WildfireEnv(gym.Env):
             self.built[arm_id] = True
             cleared += len(rows)
         spent = len(subset) * self.config.resource_cost
-        self.budget -= spent
+        if self.budget is not None:
+            self.budget -= spent
+        self.budget_used += spent
         # One synchronous shared-field transition, irrespective of subset size.
         probability = ignition_probability(self.fire_age > 0, self.fuel, self.wind,
                                              self.config.base_spread, self.config.wind_bias)
@@ -111,7 +115,7 @@ class WildfireEnv(gym.Env):
         land_damage = int(np.count_nonzero(ignited & self.vegetation))
         settlement_damage = int(np.count_nonzero(ignited & self.settlement))
         reward = -(land_damage + self.config.clearing_weight * cleared) / int(self.vegetation.sum())
-        reward -= self.config.settlement_weight * settlement_damage / int(self.settlement.sum())
+        reward -= self.config.settlement_weight * settlement_damage / max(1, int(self.settlement.sum()))
         self.total_reward += float(reward)
         self.step_number += 1
         terminated = not bool(np.any(self.fire_age > 0))
@@ -129,11 +133,11 @@ class WildfireEnv(gym.Env):
             "action_mask": self.action_mask(),
             "scenario_id": self.scenario.scenario_id,
             "budget_remaining": self.budget,
-            "budget_used": self.scenario.budget - self.budget,
+            "budget_used": self.budget_used,
             "burned_fraction": float(np.count_nonzero(self.ever_burned & self.vegetation)/vegetation_count),
             "affected_fraction": float(np.count_nonzero((self.ever_burned | self.firebreak) & self.vegetation)/vegetation_count),
             "settlement_survived": float(not np.any(self.ever_burned & self.settlement)),
-            "settlement_damage": float(np.count_nonzero(self.ever_burned & self.settlement)/self.settlement.sum()),
+            "settlement_damage": float(np.count_nonzero(self.ever_burned & self.settlement)/max(1, int(self.settlement.sum()))),
             "steps": self.step_number,
             "active_fire_cells": int(np.count_nonzero(self.fire_age)),
             "constructed_segments": int(self.built.sum()),

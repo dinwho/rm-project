@@ -1,10 +1,10 @@
 # Deep Reinforcement Learning for Constrained Wildfire Resource Allocation
 
-## Specification, fixed before implementation
+## Current specification: continuous cell construction
 
 The problem is allocation of limited **firebreak construction** resources. CRMAB
 defines these decisions; a physical wildfire simulator realizes their transitions;
-DQN learns a policy over feasible simultaneous allocations. No extra water,
+DQN learns a policy over feasible allocations. The default capacity is now one cell per physical fire interval; construction can continue throughout the incident. No extra water,
 regional suppression, or abstract two-state danger process is used.
 
 Reference: Kaza et al., *Constrained Restless Bandits for Dynamic Scheduling in
@@ -18,23 +18,27 @@ methods; DQN is this project's solver, not an algorithm attributed to that paper
 
 ## 1. Arms and sufficient system state
 
-Fix a finite catalogue of N candidate segments P_i before an episode. Every P_i
-is an in-bounds, horizontal or vertical, L-cell contiguous segment; catalogue
-geometry and identifiers remain fixed across training and evaluation. Arms are
-these construction opportunities, not individual grid cells. The initial default
-is a 12 by 12 grid, length-three segments on a sparse fixed lattice, one ignition,
-uniform vegetation and one protected settlement. Candidate neighbourhoods may
-overlap. Segment orientation describes its geometry, not wind direction.
+Fix a grid of side n. There are N=n² construction arms, one for every cell,
+including boundary cells. Arm i has site P_i={(r,c)}, with i=r*n+c. Its local
+neighbourhood H_i is its clipped 3×3 patch. The default is a 12×12 uniform forest
+with one ignition. All eligible cells are available as construction locations:
+there is no sparse lattice, orientation choice, mandatory spacing or connectivity
+rule. Adjacent built cells can form a continuous barrier. A cell is a construction
+opportunity because activating it permanently changes its fuel and future
+availability; its passive local fire state still changes at every fire interval.
+
+The former length-three segment catalogue is retained only through explicit
+`placement_mode="segments"` configurations under `configs/legacy/`. Its results
+are historical and cannot establish performance for the new problem.
 
 Let G_t=(F_t,A_t,E_t,C_t,S) contain cell fuel, remaining fire lifetime, ever-ignited
 indicator, persistent cleared/firebreak indicator, and protected-asset indicator.
-Let b_i(t) indicate that candidate i was actually constructed. A different built
-segment overlapping P_i does not make b_i true: it instead makes i ineligible.
+Let b_i(t) indicate that candidate i was actually constructed. In cell mode each built flag identifies exactly one cleared cell. In optional legacy segment mode, an overlapping construction invalidates a candidate without marking it built.
 Arm i has explicit state
 
     s_i(t) = (b_i(t), F_t|H_i, A_t|H_i, E_t|H_i, C_t|H_i, Y_i(t)),
 
-where H_i is the segment's bounding rectangle expanded by one cell. The sufficient
+where H_i includes the candidate and its eight neighbours (clipped at boundaries). The sufficient
 global state is Z_t=(G_t,b(t),B_t,w,t), including fire outside the local patches.
 Local arm summaries alone are not assumed Markov. The simulator stores Z_t and
 derives every arm state from it after every physical transition, including passive
@@ -65,16 +69,21 @@ physically eligible when the remaining budget is zero.
 
 ## 3. Hard allocation constraints
 
-One fixed-size segment costs c integer material units. For every interval:
+One constructed cell costs c integer material units (default c=1). For every interval:
 
     a_i <= Y_i(t),   sum_i a_i <= K,
     c sum_i a_i <= B_t,   B_(t+1) = B_t - c sum_i a_i.
 
 Selected segments must also be pairwise disjoint: overlapping simultaneous
 constructions are invalid, avoiding duplicate work and ambiguous material costs.
-K is renewable construction capacity **per decision interval**. B_0 is a
-consumable **whole-episode** budget. Unused capacity does not carry forward;
-unspent material does. Zero budget does not stop fire evolution. Empty allocation
+K is renewable construction capacity **per decision interval**, default K=1.
+The initial experiment has **no episode-wide material cap**: B_t=∞ and the
+budget inequality is inactive. In code `None` means infinity, not zero; the
+observation uses a documented -1 sentinel. Construction spending is still counted
+exactly. At most min(N,K*T) cells could be constructed, and fire/eligibility usually
+reduce this further. “Unlimited” never means unlimited construction before a fire
+update. Optional finite B_0 remains supported and is depleted exactly as above.
+Unused interval capacity does not carry forward; finite unspent material does. Zero budget does not stop fire evolution. Empty allocation
 is always feasible. Invalid allocations raise before any mutation or time advance.
 
 ## 4. Physical transition and wind
@@ -92,7 +101,12 @@ and varies in direction and strength between episodes. Construction removes fuel
 before q is evaluated. Firebreak cells cannot ignite. Newly ignited cells cannot
 spread again in the same interval. Existing fire ages decrement once; new fire
 gets lifetime D. Spent vegetation becomes zero fuel. E is the union of past and
-new ignitions. Diagonal bypass around short firebreaks is allowed; there is no
+new ignitions. Diagonal bypass around open ends and corner gaps is allowed. A barrier must
+separate paths in the eight-neighbour grid graph: a visually continuous diagonal
+line is not by itself a containment proof. A full square perimeter must include
+its corners. A boundary-anchored barrier can use the grid edge as part of the
+separation. Burned-out cells can also anchor it; actively burning cells still
+spread and cannot be cleared. There is no
 spotting or crossing directly over a cleared cell to a non-neighbour cell.
 
 Active arms change their own and other arms' future neighbourhoods by changing
@@ -109,6 +123,10 @@ cleared vegetation cells. The interval reward is
     r_t = -(n_V + lambda_C n_C)/V_0 - lambda_S n_S/S_0.
     maximize E_pi[sum_(t=0)^(T-1) gamma^t r_t], 0 < gamma <= 1.
 
+The default has no settlement: S is identically zero, V_0=n², and the asset
+term is omitted when S_0=0. `include_settlement=True` retains the earlier optional
+protected-asset scenario; it is disabled in the new experiments.
+
 Default lambda_C=1 accounts for vegetation sacrificed by firebreaks and prevents
 clearing from being reported as cost-free preservation. Resource feasibility is
 enforced separately, not through a penalty. Initial ignition is an action-independent
@@ -120,8 +138,8 @@ a finite-horizon objective. Remaining active fire and time-limit endings are rep
 ## 6. Exact scope of the CRMAB extension
 
 This is a **spatially coupled, single-construction CRMAB extension** with persistent
-interventions, observed state-dependent eligibility, renewable capacity and a
-consumable budget. Its product binary action vector and feasible allocation set
+interventions, observed state-dependent eligibility, renewable capacity and an
+optional consumable budget. Its product binary action vector and feasible allocation set
 are defined by construction arms; the grid supplies their shared transition field.
 
 The paper's independent-arm factorization
@@ -145,6 +163,16 @@ double-count damage). No additive independent arm-reward decomposition is assume
 
 ## 7. Learning interface and simultaneous allocation
 
+For the default K=1, the catalogue is exactly wait plus one action per cell:
+
+    catalogue[0] = (), catalogue[1+r*n+c] = (r*n+c,).
+
+Thus default 12×12 observations have 144 arm rows and the network has 145 outputs.
+The 8×8 fixed diagnostic has 64 arms and 65 outputs. Selecting one cell per
+interval is the explicit resource model, not a replacement of a multi-construction
+allocation by sequential time steps. If K>1 is explicitly configured, all selected
+cells are constructed before exactly one spread update.
+
 For small N,K, enumerate every pairwise-disjoint subset of size at most K once,
 including empty. Q_theta(o,j) is the discounted value of executing the **entire
 allocation** catalogue[j], then following the policy. It is not an arm index.
@@ -156,8 +184,7 @@ sequential construction decisions are used and time advances once per subset.
 The observation includes six physical maps (fuel, fire, normalized fire lifetime,
 ever ignited, cleared, assets), explicit per-arm construction/eligibility/local
 condition/geometry features, remaining budget and time, and current wind. Arm
-construction bits are necessary: different construction histories can create the
-same cleared union. The complete grid is supplied because local summaries are not
+construction bits explicitly identify persistent interventions (and distinguish histories in optional overlapping-segment mode). The complete grid is supplied because local summaries are not
 Markov. The catalogue geometry is fixed and known to every policy.
 
 Wind-aware and wind-unaware DQN are trained separately with identical wind-driven
@@ -174,7 +201,19 @@ validation, and the next-state maximum in the Bellman target. Terminal targets
 equal r, avoiding 0 times negative-infinity. Repeated or overbudget actions cannot
 be selected through these interfaces; direct invalid callers get a strict error.
 
-## 8. Experiment protocol
+## 8. What is borrowed from Firehose
+
+Shen and Curtis, *Firehose: Wildfire Prevention and Management using Deep
+Reinforcement Learning* ([paper](https://williamshen-nz.github.io/firehose/firehose-paper.pdf),
+§§3.1–3.4), use individual-cell treatment with lasting effects. We adopt that
+placement granularity. We do not copy their Cell2Fire simulator, extinguishing
+of burning cells, reward, or learning algorithm. Our firebreak-only rule rejects
+burning cells; otherwise the single ignition could be cleared immediately.
+
+This geometry change does not guarantee good DQN learning. No performance or
+optimality claim transfers from either reference.
+
+## 9. Experiment protocol
 
 Compare no construction, random feasible allocations, a near-fire placement rule,
 and a wind-aware placement rule, plus the two DQNs. Heuristics score whole feasible
@@ -183,7 +222,17 @@ the same public geometry and physical parameters, and feasibility masks. Report
 which rules receive wind. No policy sees future draws. A no-wind-physics experiment
 is available separately for sensitivity, not substituted for the wind ablation.
 
-Use disjoint train/validation/test seeds, fixed wind per episode, matched worlds
+First run `configs/fixed.json`: 8×8 uniform vegetation, fixed ignition (0,0),
+fixed wind (0,0.5), K=1 and no episode budget. Layout/ignition/wind stay fixed;
+spread randomness uses disjoint train/validation/test seeds. Measure initialized
+and trained validation returns, and evaluate selected checkpoints against the
+same constrained baselines on unseen random spread fields. This checks learning
+in one situation, not generalization across wind. With wind constant across all
+these episodes, a blind policy can learn that setting; its comparison cannot
+establish the value of changing wind observations.
+
+The subsequent `pilot.json` / `research.json` protocols vary wind and ignition
+across episodes. Run them only after reviewing the fixed diagnostic. Use disjoint train/validation/test seeds, fixed wind per episode, matched worlds
 and random spread fields indexed by (time,row,column) across methods and budgets,
 validation-only checkpoint choice, independent learning seeds, raw episode tables,
 paired differences and uncertainty intervals. Report both vegetation burned and

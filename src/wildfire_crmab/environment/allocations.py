@@ -46,8 +46,9 @@ class AllocationCatalogue:
             raise ValueError("Allocation is duplicated, overlapping or exceeds capacity")
         return self._indices[subset]
 
-    def mask(self, eligibility: np.ndarray, budget: int) -> np.ndarray:
+    def mask(self, eligibility: np.ndarray, budget: int | None) -> np.ndarray:
         eligible = np.asarray(eligibility, dtype=bool)
-        if eligible.shape != (self.incidence.shape[1],) or budget < 0:
+        if eligible.shape != (self.incidence.shape[1],) or (budget is not None and budget < 0):
             raise ValueError("Invalid eligibility shape or budget")
-        return ~(self.incidence & ~eligible).any(axis=1) & (self.costs <= budget)
+        affordable = np.ones(self.count, dtype=bool) if budget is None else self.costs <= budget
+        return ~(self.incidence & ~eligible).any(axis=1) & affordable

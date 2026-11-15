@@ -16,7 +16,7 @@ def empty_observation(n=12):
 
 
 @pytest.mark.parametrize("name", BASELINE_NAMES)
-@pytest.mark.parametrize("budget", [0, 1, 6])
+@pytest.mark.parametrize("budget", [None, 0, 1, 6])
 def test_policies_share_environment_feasibility(name, budget):
     config = EnvironmentConfig(max_steps=12)
     env = WildfireEnv(config)
@@ -28,7 +28,9 @@ def test_policies_share_environment_feasibility(name, budget):
         observation, _, terminated, truncated, info = env.step(action)
         if terminated or truncated:
             break
-    assert info["budget_used"] <= budget
+    if budget is not None:
+        assert info["budget_used"] <= budget
+    assert info["budget_used"] <= info["steps"] * config.capacity * config.resource_cost
 
 
 def test_random_is_reproducible_and_samples_whole_feasible_catalogue():
@@ -60,7 +62,10 @@ def test_heuristics_preserve_material_when_no_candidate_threatened():
 
 
 def test_heuristic_can_allocate_two_simultaneous_segments():
-    heuristic = ThreatHeuristic(EnvironmentConfig(), use_wind=False)
+    heuristic = ThreatHeuristic(EnvironmentConfig(
+        placement_mode="segments", segment_length=3, candidate_stride=4,
+        capacity=2, initial_budget=6, include_settlement=True,
+        settlement_weight=10), use_wind=False)
     # Find disjoint, well-separated segments and put a fire beside each.
     pair = next(subset for subset in heuristic.allocations.subsets
                 if len(subset) == 2 and

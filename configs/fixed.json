@@ -1,0 +1,39 @@
+{
+  "name": "cells_fixed_scenario",
+  "environment": {
+    "grid_size": 8,
+    "fixed_layout_seed": 0,
+    "fixed_ignition": [
+      0,
+      0
+    ],
+    "fixed_wind": [
+      0.0,
+      0.5
+    ]
+  },
+  "training": {
+    "steps": 10000,
+    "seeds": [
+      11,
+      22,
+      33
+    ],
+    "budgets": [
+      null
+    ],
+    "batch_size": 64,
+    "replay_capacity": 10000,
+    "learning_starts": 500,
+    "train_every": 4,
+    "target_every": 500,
+    "validation_every": 2500,
+    "validation_worlds": 12,
+    "gamma": 0.99,
+    "learning_rate": 0.0003
+  },
+  "evaluation": {
+    "worlds": 32,
+    "bootstrap_samples": 1000
+  }
+}

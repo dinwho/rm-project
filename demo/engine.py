@@ -1,7 +1,8 @@
-"""Generate inspectable replays using the research environment and real policies."""
+"""Inspect real cell-construction policies; never substitute legacy segment models."""
 from dataclasses import asdict
 from pathlib import Path
 import csv
+import json
 import numpy as np
 import torch
 
@@ -11,22 +12,32 @@ from wildfire_crmab.agents.baselines import make_baseline, BASELINE_NAMES
 from wildfire_crmab.agents.checkpoints import catalogue_metadata
 
 ROOT = Path(__file__).resolve().parents[1]
+RUN = ROOT / "artifacts" / "continuous_fixed"
 POLICIES = ("dqn", "dqn_no_wind", *BASELINE_NAMES)
 
 
-def rollout(policy_name="dqn", seed=42, budget=6, wind=None):
-    if policy_name not in POLICIES or not 0 <= seed < 2**31 or budget not in (0, 2, 4, 6):
-        raise ValueError("Choose a listed policy, nonnegative seed, and budget 0, 2, 4 or 6")
+def demo_config():
+    """All demo policies face the same fixed ignition, vegetation and wind."""
+    with (ROOT / "configs" / "fixed.json").open() as handle:
+        return EnvironmentConfig(**json.load(handle)["environment"])
+
+
+def rollout(policy_name="wind_heuristic", seed=42, budget=None, wind=None):
+    if policy_name not in POLICIES or not 0 <= seed < 2**31 or budget not in (None, 0, 2, 4, 6):
+        raise ValueError("Choose a listed policy, nonnegative seed, and no episode cap or budget 0, 2, 4, 6")
     torch.set_num_threads(1)
     model_info = None
+    config = demo_config()
     if policy_name.startswith("dqn"):
-        path = next((ROOT/"artifacts"/run/"models"/policy_name/"seed_11"/"best.pt"
-                     for run in ("pilot", "smoke")
-                     if (ROOT/"artifacts"/run/"models"/policy_name/"seed_11"/"best.pt").exists()), None)
-        if path is None:
-            raise FileNotFoundError("Train the smoke configuration before opening a DQN demo")
+        if budget is not None:
+            raise ValueError("This DQN was trained without an episode cap; choose No episode cap or a baseline policy")
+        path = RUN / "models" / policy_name / "seed_11" / "best.pt"
+        if not path.exists():
+            raise FileNotFoundError("Cell-construction DQN weights are missing. Train configs/fixed.json into "
+                                    "artifacts/continuous_fixed, or choose a placement heuristic.")
         policy, metadata = DQNAgent.load(path)
-        config = EnvironmentConfig(**metadata["environment"])
+        if metadata["environment"] != asdict(config):
+            raise ValueError("Saved DQN does not match configs/fixed.json; use the matching experiment configuration")
         env = WildfireEnv(config, metadata["observe_wind"], metadata["budget_scale"])
         if any(metadata.get(k) != v for k, v in catalogue_metadata(env).items()):
             raise ValueError("Model and simulator catalogue do not match")
@@ -34,13 +45,13 @@ def rollout(policy_name="dqn", seed=42, budget=6, wind=None):
                           parameter_count=sum(p.numel() for p in policy.online.parameters()),
                           architecture=str(policy.online), gamma=policy.gamma)
     else:
-        config = EnvironmentConfig()
         env = WildfireEnv(config, policy_name == "wind_heuristic", budget_scale=6)
         policy = make_baseline(policy_name, config, seed+123)
     obs, info = env.reset(options={"scenario": Scenario(seed, budget, wind)})
     frames = []
     previous_reward = 0.0
     discounted = 0.0
+    truncated = False
     while True:
         mask = info["action_mask"]
         action = None if env.finished else policy.act(obs, mask)
@@ -56,14 +67,16 @@ def rollout(policy_name="dqn", seed=42, budget=6, wind=None):
                            wind_observation=obs["context"][:2].tolist(),
                            allocation=[] if action is None else list(env.allocations.decode(action)),
                            action=action, feasible=int(mask.sum()), q_values=scores,
-                           budget=env.budget, burned=info["burned_fraction"], affected=info["affected_fraction"],
+                           budget=env.budget, resources_used=info["budget_used"],
+                           burned=info["burned_fraction"], affected=info["affected_fraction"],
                            asset_damage=info["settlement_damage"], active_fire=info["active_fire_cells"],
                            previous_reward=previous_reward, discounted_return=discounted,
                            finished=env.finished))
         if env.finished:
             break
         obs, previous_reward, terminated, truncated, info = env.step(action)
-        discounted += .99**(env.step_number-1)*previous_reward
+        gamma = policy.gamma if model_info else .99
+        discounted += gamma**(env.step_number-1)*previous_reward
     return dict(policy=policy_name, seed=seed, initial_budget=budget, config=asdict(config),
                 arms=[asdict(s) for s in env.arms.segments], action_count=int(env.action_space.n),
                 actual_wind=env.wind.tolist(), model=model_info, frames=frames,
@@ -71,15 +84,16 @@ def rollout(policy_name="dqn", seed=42, budget=6, wind=None):
 
 
 def experiment_results():
-    path = ROOT/"artifacts"/"pilot"/"evaluation"/"summary.csv"
+    path = RUN / "evaluation" / "summary.csv"
     if not path.exists():
-        return dict(status="Pilot still running", rows=[], learning=[])
+        return dict(status="Cell-construction diagnostic results are not available yet.", rows=[], learning=[])
     with path.open() as handle:
         rows = [row for row in csv.DictReader(handle) if row["group"] == "all"]
     learning = []
     for method in ("dqn", "dqn_no_wind"):
-        for seed in (11, 22, 33):
-            path = ROOT/"artifacts"/"pilot"/"models"/method/f"seed_{seed}"/"validation.csv"
+        for path in sorted((RUN / "models" / method).glob("seed_*/validation.csv")):
+            seed = int(path.parent.name.removeprefix("seed_"))
             with path.open() as handle:
                 learning.extend(dict(method=method, seed=seed, **r) for r in csv.DictReader(handle))
-    return dict(status="Pilot: 3 training seeds · 10,000 intervals each · 24 held-out worlds × 3 budgets", rows=rows, learning=learning)
+    return dict(status="Fixed-scenario diagnostic: same layout, ignition and wind; fresh held-out fire-spread draws. "
+                       "This does not test generalization across wind or ignition locations.", rows=rows, learning=learning)

@@ -13,8 +13,9 @@ def summarize(rows, samples=1000, seed=2026, metrics=METRICS):
     for method in sorted({r["method"] for r in rows}):
         subset = [r for r in rows if r["method"] == method]
         groups = {"all": subset}
-        for budget in sorted({r["budget"] for r in subset}):
-            groups[f"budget={budget}"] = [r for r in subset if r["budget"] == budget]
+        for budget in sorted({r["budget"] for r in subset}, key=lambda b: (b is None, b or 0)):
+            label = "unlimited" if budget is None else str(budget)
+            groups[f"budget={label}"] = [r for r in subset if r["budget"] == budget]
         for condition in sorted({r["condition"] for r in subset}):
             groups[f"wind={condition}"] = [r for r in subset if r["condition"] == condition]
         for group, records in groups.items():

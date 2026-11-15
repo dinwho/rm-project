@@ -19,7 +19,7 @@
       <select id="policy">
         <option value="dqn">DQN with wind</option>
         <option value="dqn_no_wind">DQN without wind input</option>
-        <option value="wind_heuristic">Wind heuristic</option>
+        <option value="wind_heuristic" selected>Wind heuristic</option>
         <option value="greedy">Near-fire heuristic</option>
         <option value="random">Random placement</option>
         <option value="no_intervention">No construction</option>
@@ -27,7 +27,7 @@
     </label>
     <label>Seed <input id="seed" type="number" min="0" max="2147483647" value="42"></label>
     <label>Budget
-      <select id="budget"><option>0</option><option>2</option><option>4</option><option selected>6</option></select>
+      <select id="budget"><option value="none" selected>No episode cap</option><option>0</option><option>2</option><option>4</option><option>6</option></select>
     </label>
     <button id="reset">Load episode</button>
   </div>
@@ -36,12 +36,12 @@
 
   <div class="simulation">
     <div class="board">
-      <label class="check"><input id="candidates" type="checkbox" checked> Show candidate segments</label>
-      <canvas id="grid" width="600" height="600" aria-label="Wildfire grid and candidate firebreak segments"></canvas>
+      <label class="check"><input id="candidates" type="checkbox" checked> Show eligible cells</label>
+      <canvas id="grid" width="600" height="600" aria-label="Wildfire grid and candidate firebreak cells"></canvas>
       <div class="legend">
         <span><i class="fuel"></i>Vegetation</span><span><i class="fire"></i>Fire</span>
         <span><i class="burned"></i>Burned</span><span><i class="break"></i>Firebreak</span>
-        <span><i class="asset"></i>Settlement</span><span><i class="next"></i>Next construction</span>
+        <span><i class="next"></i>Next construction</span>
       </div>
       <div class="playback">
         <button id="back">Back</button><button id="play">Play</button><button id="step">Next step</button>
@@ -54,9 +54,9 @@
       <h2>Current state</h2>
       <div class="fact"><span>Interval</span><b id="tick">—</b></div>
       <div class="fact"><span>Materials left</span><b id="materials">—</b></div>
-      <div class="fact"><span>Built segments</span><b id="built">—</b></div>
+      <div class="fact"><span>Built cells</span><b id="built">—</b></div>
       <div class="fact"><span>Burned or cleared</span><b id="affected">—</b></div>
-      <div class="fact"><span>Capacity per interval</span><b>2 segments</b></div>
+      <div class="fact"><span>Capacity per interval</span><b id="capacity">1 cell</b></div>
       <div class="fact"><span>Valid allocations</span><b id="feasible">—</b></div>
       <div class="fact"><span>Actual wind (row, col)</span><b id="actual-wind">—</b></div>
       <div class="fact"><span>Wind seen by policy</span><b id="observed-wind">—</b></div>
@@ -64,7 +64,7 @@
       <h2 class="spaced">Next decision</h2>
       <p id="allocation">—</p>
       <p id="action-detail" class="small"></p>
-      <p class="small">Selected segments are built together. Fire then advances once.</p>
+      <p class="small">Build one eligible cell or wait. Fire then advances once.</p>
       <p id="reward">Reward —</p>
       <p id="transition-text" class="small"></p>
       <p class="small">Discounted return so far: <span id="return">0.000</span></p>
@@ -79,11 +79,11 @@
 
   <details id="model">
     <summary>DQN model and training</summary>
-    <p>The network receives six grid layers, ten features for each of the 18 arms,
+    <p>The network receives six grid layers, ten features for each candidate cell,
        and four context values: wind, remaining budget and time.</p>
     <p>The map passes through two convolution layers. Arm features pass through a
-       dense layer. These are combined to produce 163 Q-values—one per complete
-       allocation. Invalid allocations are masked before choosing the highest value.</p>
+       dense layer. These are combined to produce one Q-value per cell plus wait. Invalid allocations are masked before choosing the highest value.</p>
+    <p id="dimensions" class="small"></p>
     <p id="parameters" class="small"></p>
     <h2>Current allocation values</h2>
     <p id="q-note" class="small"></p>
@@ -101,32 +101,32 @@
       <li>Periodically copy online weights to the target network; evaluate on separate validation worlds.</li>
     </ol>
     <p><code>target = reward + gamma × best feasible next Q</code></p>
-    <p>At the episode boundary, the target is just the reward. New burning, clearing,
-       and settlement damage are penalized. Materials and capacity are hard constraints.</p>
+    <p>At the episode boundary, the target is just the reward. New burning and clearing
+       are penalized. The construction limit is one cell per fire interval.</p>
     <p>This demo uses saved weights. Playback does not train the network.</p>
     <p class="small">Firebreaks affect neighbouring arms, so this is a spatially coupled
        CRMAB extension. It does not assume independent arms or inherit indexability guarantees.</p>
   </details>
 
   <details id="results">
-    <summary>Pilot results</summary>
+    <summary>Fixed-scenario diagnostic results</summary>
     <p id="result-status"></p>
     <div class="table-scroll">
       <table id="comparison">
-        <thead><tr><th>Policy</th><th>Return [95% interval]</th><th>Burned or cleared</th><th>Asset survival</th></tr></thead>
+        <thead><tr><th>Policy</th><th>Return [95% interval]</th><th>Burned or cleared</th><th>Cells constructed</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
     <p>Both DQNs face the same wind-driven simulator. The unaware model receives
-       zero in the explicit wind inputs. The pilot's heuristics outperformed DQN;
-       the advantage of providing wind observations was not clearly established.</p>
+       zero in the explicit wind inputs. This first diagnostic holds wind fixed; it does
+       not establish the benefit of wind observations across changing conditions.</p>
     <h2>Validation during training</h2>
     <p class="small">Green: DQN with wind. Orange: DQN without wind input.
        One line per training seed. Higher return is better.</p>
     <canvas id="learning" width="1000" height="320" aria-label="Measured validation return during training"></canvas>
-    <p class="small">Intervals resample training seeds and worlds, keeping repeated budgets together.</p>
+    <p class="small">Intervals resample training seeds and scenario draws. Results concern this fixed scenario only.</p>
   </details>
-  <footer>Synthetic wildfire model. Each arm is a fixed candidate firebreak segment.</footer>
+  <footer>Synthetic wildfire model. Each cell is a construction arm. Connected cleared cells can form a continuous firebreak.</footer>
 </main>
 <script src="app.js"></script>
 </body>

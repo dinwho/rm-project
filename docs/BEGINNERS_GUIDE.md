@@ -58,25 +58,27 @@ explain an idea; they are not measured experimental results.
 ## 1. What problem are we solving?
 
 Imagine watching a small forest from above. A fire starts at one location. Wind
-pushes its spread more strongly in some directions. There is a settlement we want
-to protect, as well as vegetation we want to preserve.
+pushes its spread more strongly in some directions. We want to preserve the
+remaining vegetation by separating active fire from unburned fuel.
 
-We can clear strips of vegetation to create **firebreaks**. A firebreak has no fuel,
+We can clear individual vegetation cells to create **firebreaks**. Adjacent cleared
+cells can join into a continuous line or closed perimeter. A firebreak has no fuel,
 so those cleared cells cannot catch fire in this simulator. Fire can still go
 around the ends of a short firebreak.
 
-We cannot construct everywhere at once. We have a list of candidate sites, a limit
-on how many segments can be built during one interval, and a limited supply of
-materials for the whole incident.
+We cannot construct everywhere at once. Every grid cell is a candidate site, but
+we can clear at most one eligible cell before fire advances. The default has no
+whole-episode material cap: construction continues while fire is active, time
+remains, and eligible vegetation is available. Finite material budgets are optional.
 
 The decision is:
 
-> Which available candidate segments should we construct now, and how much of our
-> remaining material should we save for later?
+> Which eligible cell should we clear now, or should we wait, to preserve the most
+> vegetation over the incident?
 
-This is difficult because the benefit can appear much later. A segment might cost
-vegetation and materials immediately but stop a fire from reaching the settlement
-several intervals later. Another segment might look useful now but be bypassed.
+This is difficult because the benefit can appear much later. Clearing a cell loses
+vegetation immediately but may help complete a barrier several intervals later.
+Another placement might look useful now but be bypassed before the barrier closes.
 
 ### The current small world
 
@@ -84,13 +86,13 @@ several intervals later. Another segment might look useful now but be bypassed.
 | --- | --- | --- |
 | Grid | 12 rows × 12 columns | 144 physical locations |
 | Vegetation | Initially uniform | Fuel begins at 1 in each cell |
-| Protected asset | 2 × 2 cells | A small settlement, also capable of burning |
+| Protected asset | Disabled | Optional legacy experiments can enable a 2 × 2 settlement |
 | Initial ignition | One edge cell | Each episode starts with one fire |
-| Candidate segments | 18 | Fixed construction opportunities |
-| Segment length | 3 cells | Every construction clears three contiguous cells |
-| Construction capacity | 2 per interval | At most two candidate arms can be activated together |
-| Cost | 1 material unit per segment | This is separate from the three physical cells cleared |
-| Default episode budget | 6 units | Experiments also use budgets 2 and 4 |
+| Candidate arms | 144 | Every cell, including boundary cells |
+| Construction size | 1 cell | Adjacent constructions can connect without enforced spacing |
+| Construction capacity | 1 per interval | One cell may be cleared before each fire update |
+| Cost | 1 material unit per cell | Resources spent are recorded even without a total cap |
+| Default episode budget | `None` | No whole-episode material cap; finite caps remain configurable |
 | Fire lifetime | 3 intervals | A newly burning cell remains active for this many updates |
 | Maximum horizon | 40 intervals | The study stops at this finite incident horizon |
 | Wind | Fixed within an episode | Direction and strength vary across episodes |
@@ -99,7 +101,10 @@ These settings are in
 [`environment/config.py`](../src/wildfire_crmab/environment/config.py).
 They define a synthetic experiment, not a calibrated prediction of a real fire.
 
-![A real example of candidate segments, construction and subsequent evolution](assets/allocation.png)
+The smaller fixed-scenario diagnostic in [`configs/fixed.json`](../configs/fixed.json)
+uses an 8×8 grid, 64 cell arms and 65 DQN outputs. It holds the initial location
+and wind fixed while independently sampling spread outcomes. The archived
+`assets/allocation.png` illustrates the previous separated-segment model only.
 
 ## 2. The minimum Python and maths vocabulary
 
@@ -107,16 +112,16 @@ You will see a few programming ideas throughout the guide:
 
 | Term or notation | Plain meaning | Example here |
 | --- | --- | --- |
-| Variable | A named piece of information | `budget = 6` |
+| Variable | A named piece of information | `budget = None` means no episode cap |
 | Function | A named procedure that takes inputs and returns a result | `ignition_probability(...)` |
 | Class | A definition grouping related information and operations | `WildfireEnv` |
 | Object | A particular instance made from a class | `env = WildfireEnv()` |
 | `self` | The current object inside its class methods | `self.budget` is this environment's remaining material |
-| Boolean | A yes/no value: `True` or `False` | Whether a segment is built |
+| Boolean | A yes/no value: `True` or `False` | Whether a cell arm is built |
 | Array | An organized collection of numbers or booleans | A 12×12 fuel map |
-| Shape | The array's dimensions | `(18, 10)` means 18 rows and 10 columns |
+| Shape | The array's dimensions | `(144, 10)` means 144 rows and 10 columns |
 | Dictionary | Values stored under names | `observation["map"]` |
-| Tuple | An ordered grouping | `(0, 2)` selects arm IDs 0 and 2 |
+| Tuple | An ordered grouping | `(2,)` selects arm ID 2 |
 | Index | A position, counted from zero in Python | Arm 0 is the first arm |
 | Tensor | A numerical array used by the learning library | A batch of maps passed to PyTorch |
 
@@ -158,7 +163,7 @@ The main terms are:
 | State | Information describing the situation | Fire, fuel, constructed arms, budget, wind and time |
 | Observation | Information actually given to the agent | Map arrays, arm features and context values |
 | Action | One decision | A complete subset of firebreak arms to construct together |
-| Reward | Immediate numerical feedback | Negative newly incurred vegetation and asset damage |
+| Reward | Immediate numerical feedback | Negative newly burned and deliberately cleared vegetation |
 | Transition | The change after an action | Construction followed by one synchronous fire update |
 | Policy | The rule for choosing actions | Select a feasible allocation using learned Q-values |
 | Episode | One complete run of the incident | Reset → several decisions → extinction or horizon |
@@ -177,8 +182,8 @@ The agent gets outcomes and must learn which decisions lead to better outcomes.
 
 ### Why long-term feedback matters
 
-Suppose a firebreak causes a small immediate loss because three vegetation cells
-are removed. It might still be a good choice if it prevents much more damage later.
+Suppose a firebreak causes a small immediate loss because one vegetation cell
+is removed. It might still be a good choice if it prevents much more damage later.
 Connecting a later outcome to an earlier decision is called **credit assignment**.
 DQN attempts this through estimates of future reward, not just the next reward.
 
@@ -197,8 +202,9 @@ The browser demo does not perform optimizer updates.
 ## 4. States, observations and the Markov idea
 
 An agent needs enough information to make a useful decision. Just knowing where
-the fire is may not be enough: the same fire map with six materials remaining is
-a different decision problem from the same map with zero materials remaining.
+the fire is may not be enough: the same map with ten intervals remaining is a
+different decision problem from one with a single interval remaining. When a finite
+material budget is enabled, its remaining amount also matters.
 
 The environment stores:
 
@@ -208,9 +214,9 @@ The environment stores:
 | `fire_age` | Remaining burning lifetime at each cell; despite its name, it counts down |
 | `ever_burned` | Whether each cell has ever ignited |
 | `firebreak` | Whether each cell was cleared for construction |
-| `settlement` | Which cells belong to the protected asset |
+| `settlement` | Optional protected-asset layer; all zeros by default |
 | `built` | Whether each particular candidate arm was constructed |
-| `budget` | Materials left |
+| `budget` | Materials left, or `None` when no episode cap is imposed |
 | `wind` | The current episode's fixed wind vector |
 | `step_number` | Number of completed physical intervals |
 
@@ -264,22 +270,24 @@ The research concept extends well beyond slot machines. An arm can represent a
 job, a location, a patient, a machine needing maintenance, or a construction
 opportunity. The mapping must specify what choosing it does.
 
-In **this project**, arm `i` is one fixed candidate firebreak segment `P_i`.
-For example, it might cover cells `(2,1)`, `(2,2)`, and `(2,3)`.
+In **this project**, arm `i` is a candidate cell that can be permanently cleared.
+On the default 12×12 grid, arm `i = 12*row + column`. Arm 26 covers cell `(2,2)`.
+The arm includes a build flag and changing local conditions, not just a cell label:
+its activation removes fuel, its eligibility changes, and passive fire still evolves.
 
 **A physical cell, an arm, and a complete allocation are different objects:**
 
 | Object | Example | Role |
 | --- | --- | --- |
 | Cell | `(2, 2)` | One physical location in the simulator |
-| Arm | Arm 0 covering three cells | One candidate construction site |
-| Allocation | Arms `(0, 2)` together | One complete action submitted to the environment |
+| Arm | Arm 26 at `(2,2)` | One irreversible construction opportunity with a local state |
+| Allocation | `(26,)` or `()` | Clear that cell, or leave all arms passive |
 
 ### Active and passive
 
 For each arm in an interval:
 
-- **Active:** construct its segment now, provided it is eligible and the whole
+- **Active:** clear its cell now, provided it is eligible and the whole
   allocation is feasible.
 - **Passive:** do not construct that candidate during this interval.
 
@@ -299,13 +307,13 @@ neighbourhood of the chosen arms.
 ### Constrained
 
 We may activate only an allowed combination of arms. Our constraints include
-physical eligibility, maximum simultaneous constructions, remaining materials,
-and overlap between selected segments.
+physical eligibility and maximum simultaneous constructions. A finite episode
+material budget is optional. Legacy multi-cell segment mode also checks overlaps.
 
 ### What is an arm's state?
 
 An arm has a persistent construction flag, an eligibility flag, and local physical
-conditions around its segment. The full local arrays can be inspected as an
+conditions around its cell. The full local arrays can be inspected as an
 `ArmState` snapshot.
 
 **Actual project excerpt —**
@@ -343,25 +351,29 @@ Kaza et al. supplies the CRMAB framework reference. Its independent-arm results
 and regional supplemental-suppression example are not claimed to be reproduced
 by this firebreak model. In particular, we do not inherit **indexability**, a
 property needed for certain arm-index methods, or an optimality guarantee.
-The precise assumptions are in [FORMULATION.md](FORMULATION.md).
+The placement idea is adapted from [Firehose, §§3.1–3.3](https://williamshen-nz.github.io/firehose/firehose-paper.pdf):
+choose cells that can join into barriers. Firehose also permits treating burning
+cells; this project deliberately excludes that extinguishing action. Otherwise a
+single initial burning cell could be cleared immediately and trivialize the task.
+No placement has to touch the previous placement, and no correct perimeter is
+hard-coded. The precise assumptions are in [FORMULATION.md](FORMULATION.md).
 
 ## 6. From arms to feasible simultaneous allocations
 
 ### Capacity and budget are different resources
 
-Imagine two construction crews and six material kits. During one interval, the
-crews can construct at most two segments. After that interval, the crews can work
-again, but kits already consumed are gone.
+Imagine one construction crew. It can clear one cell during an interval, then
+fire advances. On the next interval the crew can work again.
 
-This analogy corresponds to:
+- `capacity = 1`: renewable ability to build at most one cell **per interval**.
+- `initial_budget = None`: no whole-episode material cap in the main experiment.
+- `resource_cost = 1`: one material unit recorded for each constructed cell.
 
-- `capacity = 2`: renewable ability to build at most two segments **per interval**.
-- `initial_budget = 6`: consumable material for the **whole episode**.
-- `resource_cost = 1`: material used for each constructed segment.
-
-After constructing two segments, the next interval still has capacity two, but
-only four material units remain. The actual code models these numbers, not
-individual crew travel or worker schedules.
+After eight constructions the spent counter is eight, and construction can
+continue if time and eligible cells remain. To study material scarcity separately,
+set `initial_budget=6` and use scenarios with budget six; after six unit-cost builds
+only wait remains. The simulator enforces either setting, rather than hoping a
+reward penalty discourages excess construction. It does not model crew travel.
 
 ### Eligibility is separate from affordability
 
@@ -382,43 +394,34 @@ already be cleared, and must not be part of the settlement. The second line
 requires every cell in a candidate segment to pass, and the candidate itself
 must not already have been built.
 
-If a horizontal segment and a vertical segment share a cell, constructing one
-makes the other ineligible. It does **not** falsely mark the second segment as
-having been constructed: its `built` flag remains false.
+Each default arm contains one unique cell. In explicit legacy segment mode,
+overlapping multi-cell candidates are additionally incompatible; constructing one
+can make another ineligible without marking that other arm built.
 
-### One DQN action means one whole subset
+### One DQN action means one whole allocation
 
-The DQN does not repeatedly choose one arm and advance fire after each choice.
-Instead, we create a catalogue of entire subsets:
+With capacity one, the catalogue contains:
 
 ```text
-()          construct nothing
-(0,)        construct arm 0
-(2,)        construct arm 2
-(0, 2)      construct arms 0 and 2 together
+()          construct nothing; fire still advances
+(0,)        construct cell arm 0
+(1,)        construct cell arm 1
 ...
+(143,)      construct cell arm 143
 ```
 
-Each catalogue entry has an integer **action ID**. An action ID is not an arm ID.
-`encode((0, 2))` finds the action ID for that subset; `decode(action)` retrieves
-the selected arm IDs.
+Action ID zero means wait; action ID `i+1` selects cell arm `i`.
+`encode((26,))` returns the action ID for constructing arm 26, and `decode(action)`
+returns its selected arm IDs. On the 12×12 grid this gives **145 outputs**.
+Eligibility masks reduce the available choices as cells burn or are cleared.
 
-With 18 arms and capacity two, the unfiltered number is:
-
-```text
-1 empty subset + 18 singletons + (18 × 17 / 2) pairs = 172.
-```
-
-Nine horizontal/vertical pairs overlap in the default geometry and are removed.
-That leaves **163 catalogue actions**. This is before removing actions that are
-currently ineligible or unaffordable. The number of currently feasible actions
-therefore varies over time.
-
-This counting problem grows quickly as the number of arms or simultaneous
-capacity grows. That is what **combinatorial action space** means here.
-The code rejects excessive catalogue sizes rather than pretending enumeration
-scales to arbitrary forests. It is an exact action representation for a small
-problem, not an exact optimal policy.
+This is an intentional construction rate of one cell per fire interval. It is
+not a hidden sequential replacement for a higher-capacity problem. If capacity
+is explicitly raised, the catalogue enumerates complete simultaneous subsets and
+all constructions occur before one fire update. That space grows combinatorially:
+144 cells with capacity two would require 10,441 actions. The default catalogue
+limit of 5,000 rejects that configuration rather than silently changing its timing.
+The 8×8 diagnostic uses capacity one and therefore has 65 actions.
 
 ### The feasibility mask
 
@@ -434,7 +437,8 @@ False = the whole allocation is forbidden now
 
 <!-- source: ../src/wildfire_crmab/environment/allocations.py -->
 ```python
-        return ~(self.incidence & ~eligible).any(axis=1) & (self.costs <= budget)
+        affordable = np.ones(self.count, dtype=bool) if budget is None else self.costs <= budget
+        return ~(self.incidence & ~eligible).any(axis=1) & affordable
 ```
 
 `incidence[j,i]` says whether allocation `j` selects arm `i`. This line says:
@@ -442,8 +446,9 @@ False = the whole allocation is forbidden now
 remaining budget.” Capacity and pairwise non-overlap were already enforced when
 the catalogue was created.
 
-The empty allocation is always feasible. When the budget reaches zero, it is the
-only feasible allocation, and fire continues evolving.
+The empty allocation is always feasible. When an optional finite budget reaches
+zero, it is the only feasible allocation, and fire continues evolving. With
+`budget=None`, affordability never removes a physically eligible action.
 
 ## 7. What happens during one simulator step?
 
@@ -465,7 +470,7 @@ This happens before construction or time advancement. Even if a caller ignores
 the mask, the environment enforces the constraint. An invalid allocation does not
 merely incur a penalty and proceed.
 
-### Phase 2: construct every selected segment
+### Phase 2: construct every selected site
 
 **Actual project excerpt:**
 
@@ -478,12 +483,16 @@ merely incur a penalty and proceed.
             self.built[arm_id] = True
             cleared += len(rows)
         spent = len(subset) * self.config.resource_cost
-        self.budget -= spent
+        if self.budget is not None:
+            self.budget -= spent
+        self.budget_used += spent
 ```
 
-Each segment gets permanent cleared cells and a persistent build flag. Materials
-are charged once. Although Python visits the selected IDs in a loop, **no fire
-update occurs inside this loop**. Both constructions are completed before spread.
+Each selected cell becomes a permanent firebreak with a persistent build flag.
+Resources spent are counted once. Although Python visits selected IDs in a loop,
+**no fire update occurs inside this loop**. The default permits one selected ID;
+an explicitly configured higher capacity still constructs the complete subset
+before the single fire update.
 
 ### Phase 3: let fire evolve everywhere
 
@@ -564,12 +573,13 @@ that interval; it does not necessarily mean the incident is safe.
 <!-- source: ../src/wildfire_crmab/environment/env.py -->
 ```python
         reward = -(land_damage + self.config.clearing_weight * cleared) / int(self.vegetation.sum())
-        reward -= self.config.settlement_weight * settlement_damage / int(self.settlement.sum())
+        reward -= self.config.settlement_weight * settlement_damage / max(1, int(self.settlement.sum()))
 ```
 
 The first line charges for newly burned vegetation and vegetation deliberately
 cleared for construction, divided by initial vegetation area. The second charges
-new settlement damage, weighted more heavily.
+new settlement damage only in optional asset experiments. The default settlement
+weight is zero and the asset layer is empty; the protected denominator handles this.
 
 Counting cleared vegetation matters: a policy should not appear to “preserve the
 forest” by simply removing most of it before it burns.
@@ -578,24 +588,19 @@ forest” by simply removing most of it before it burns.
 
 **Teaching example using the default dimensions:**
 
-- There are `144 - 4 = 140` non-settlement vegetation cells.
-- Two constructed segments clear `2 × 3 = 6` cells.
+- There are 144 vegetation cells and no settlement.
+- One selected cell is cleared.
 - Four other vegetation cells ignite during the interval.
-- One of the four settlement cells ignites.
-- Clearing weight is 1 and settlement weight is 10.
-
-Then:
+- Clearing weight is 1.
 
 ```text
-vegetation contribution = -(4 + 1×6)/140 = -0.0714286
-asset contribution      = -10×1/4         = -2.5
-total reward            = -2.5714286
+reward = -(4 + 1×1)/144 = -0.0347222
 ```
 
-If no settlement cell had ignited, the reward would instead be about `-0.0714`.
-The resource budget still falls by **two material units**, not six. Physical
-clearing cost in the reward and material consumption in the constraint are
-different quantities.
+If no new cells ignited, construction alone would cost `-1/144`. The resource
+spent counter rises by one. An optional finite budget falls by one; with no cap,
+`budget_remaining` stays `None`. Reward cost and a hard material cap have different
+roles even when their numerical cell costs happen to match.
 
 Only newly incurred damage is charged. Initial ignition is included in outcome
 metrics but omitted from rewards because it occurred before the agent could act.
@@ -734,8 +739,8 @@ numerical observations and rewards produced by those transitions.
 | Entry | Shape | What the network receives |
 | --- | --- | --- |
 | `map` | `(6, 12, 12)` | Six grid layers describing the physical field |
-| `arms` | `(18, 10)` | Ten features for each candidate arm |
-| `context` | `(4,)` | Wind row/column, normalized remaining budget, remaining time |
+| `arms` | `(144, 10)` | Ten features for each candidate cell arm |
+| `context` | `(4,)` | Wind row/column, budget indicator, remaining time |
 
 The six map layers are fuel, currently burning, remaining fire lifetime divided
 by the configured duration, ever burned, cleared/firebreak, and settlement.
@@ -753,13 +758,13 @@ The ten arm features are:
 7. Fraction of the neighbourhood that is cleared.
 8. Normalized center row.
 9. Normalized center column.
-10. Vertical-orientation flag.
+10. Vertical-orientation flag; always zero for single-cell arms, retained for legacy segments.
 
 “Normalized” means scaled into a convenient range. For example, remaining time is
-`1 - step_number/max_steps`, going from 1 towards 0. Budget is divided by a fixed
-scale chosen for the experiment, not by the current remaining budget. The pilot
-uses scale 6; a bare `WildfireEnv()` defaults to scale 9. Checkpoint metadata records
-the scale so the same quantities mean the same thing during later inference.
+`1 - step_number/max_steps`, going from 1 towards 0. The budget entry is `-1`
+when materials have no episode cap. A finite remaining budget is divided by a
+fixed scale and lies in `[0,1]`, so zero materials is distinguishable from unlimited
+materials. Checkpoint metadata records the scale for compatible later inference.
 
 The complete map is essential: local averages lose spatial details and cannot
 describe all incoming fire. Explicit arm build bits preserve construction identity.
@@ -807,23 +812,25 @@ lays those values into one list: `32 × 3 × 3 = 288` numbers.
         )
 ```
 
-The arm matrix is flattened into `18 × 10 = 180` numbers and transformed into
+The default arm matrix is flattened into `144 × 10 = 1440` numbers and transformed into
 64 features. The network joins the 288 map features, 64 arm features, and 4 context
 numbers: `288 + 64 + 4 = 356`.
 
 ```text
 6×12×12 map ── CNN ───────────────────► 288 features ─┐
-18×10 arms ── flatten + dense + ReLU ─►  64 features ─┼─► 356 ─► 128 ─► 163 Q-values
+144×10 arms ─ flatten + dense + ReLU ─► 64 features ─┼─► 356 ─► 128 ─► 145 Q-values
 wind + budget + time ────────────────►   4 values ────┘
 ```
 
-The 163 outputs correspond to catalogue allocations. There are not 163 arms.
+The 145 outputs are 144 single-cell construction choices plus wait. For the
+8×8 fixed diagnostic, the arm matrix has 64 rows and the network has 65 outputs.
+Changing the geometry requires a compatible newly trained model.
 
 ### The batch dimension
 
 The network can process many observations together. A batch of 64 maps has shape
 `(64, 6, 12, 12)`, with 64 in front to identify separate examples. Its output has
-shape `(64, 163)`.
+shape `(64, 145)` for the default grid.
 
 At action selection time, there is only one current observation. The code uses
 `unsqueeze(0)` to add a leading dimension of size one, making it a one-example batch.
@@ -1110,7 +1117,7 @@ The pilot configuration is in [`configs/pilot.json`](../configs/pilot.json):
 | Learning rate | 0.0003 | Adam update scale |
 | Gamma | 0.99 | Future-reward discount |
 | Validation every | 2,500 | Check policy on separate validation worlds |
-| Validation worlds | 8, each at three budgets | Data used to select a checkpoint |
+| Validation worlds | 8, with no episode cap | Data used to select a checkpoint |
 
 Training steps are counted across multiple episodes. Ten thousand training steps
 do not mean ten thousand independent incidents or one ten-thousand-interval fire.
@@ -1247,7 +1254,16 @@ analysis. With few seeds and a small suite, intervals themselves can be unstable
 
 ## 20. How to interpret the actual pilot results
 
-These values are **measured results**, unlike the invented teaching examples above.
+**Archived separated-segment experiment, not results for the current cell model.**
+The following measurements used 18 separated three-cell segments, capacity two,
+budgets 2/4/6 and a weighted settlement objective. They remain useful for learning
+how to read results, but cannot establish performance of continuous placement.
+Current fixed-scenario results are in
+[`artifacts/continuous_fixed/results/RESULTS.md`](../artifacts/continuous_fixed/results/RESULTS.md)
+when that run has completed. Its fixed wind is a learning diagnostic, not evidence
+that wind awareness generalizes across different winds.
+
+These values are **measured historical results**, unlike the invented teaching examples above.
 See [the complete report](../results/pilot/RESULTS.md) for intervals, per-budget
 summaries and raw outcomes.
 
@@ -1295,7 +1311,8 @@ source .venv/bin/activate
 python examples/one_allocation.py
 ```
 
-That example demonstrates two constructions within one fire interval.
+That example demonstrates cell construction, persistence and one physical fire
+update per allocation.
 
 ### Inspect a complete action yourself
 
@@ -1308,11 +1325,10 @@ import numpy as np
 from wildfire_crmab import WildfireEnv, Scenario
 
 env = WildfireEnv()
-observation, info = env.reset(options={"scenario": Scenario(seed=42, budget=6)})
+observation, info = env.reset(options={"scenario": Scenario(seed=42, budget=None)})
 
-# Pick a currently feasible catalogue action containing two candidate arms.
-action = next(int(j) for j in np.flatnonzero(info["action_mask"])
-              if len(env.allocations.decode(int(j))) == 2)
+# Pick the first currently feasible nonempty allocation: one cell.
+action = int(np.flatnonzero(info["action_mask"])[1])
 print("Action ID:", action)
 print("Selected arm IDs:", env.allocations.decode(action))
 print("Before: time, materials =", env.step_number, env.budget)
@@ -1324,16 +1340,18 @@ print("Reward:", reward)
 print("Observation shapes:", {key: value.shape for key, value in observation.items()})
 
 assert env.step_number == 1
-assert env.budget == 4
-assert info["newly_cleared"] == 6
+assert env.budget is None
+assert info["budget_used"] == 1
+assert info["newly_cleared"] == 1
 ```
 
-This chooses the first feasible pair as a demonstration. It does not claim that
-the pair is a good policy decision.
+This chooses the first eligible cell to demonstrate the interface. It does not
+claim that this placement is a good policy decision.
 
 ### Inspect what a saved DQN actually chooses
 
-This second example requires the existing pilot checkpoint in this workspace.
+This second example requires the fixed-scenario cell-construction checkpoint.
+If it is absent, first run the fixed-scenario training command below.
 
 <!-- runnable: checkpoint -->
 ```python
@@ -1342,7 +1360,7 @@ from wildfire_crmab import EnvironmentConfig, WildfireEnv, Scenario
 from wildfire_crmab.agents.dqn import DQNAgent
 from wildfire_crmab.agents.checkpoints import catalogue_metadata
 
-path = Path("artifacts/pilot/models/dqn/seed_11/best.pt")
+path = Path("artifacts/continuous_fixed/models/dqn/seed_11/best.pt")
 agent, metadata = DQNAgent.load(path)
 env = WildfireEnv(
     EnvironmentConfig(**metadata["environment"]),
@@ -1351,7 +1369,7 @@ env = WildfireEnv(
 )
 assert all(metadata[key] == value for key, value in catalogue_metadata(env).items())
 
-observation, info = env.reset(options={"scenario": Scenario(seed=42, budget=6)})
+observation, info = env.reset(options={"scenario": Scenario(seed=42, budget=None)})
 action = agent.act(observation, info["action_mask"], epsilon=0.0)
 print("Selected checkpoint step:", metadata["step"])
 print("Chosen action ID:", action)
@@ -1380,7 +1398,8 @@ The following commands provide training and the optional detailed dashboard:
 ```bash
 # Small pipeline run: both variants, validation selection, evaluation, reports.
 # Use a new output folder each time.
-python -m wildfire_crmab run --config configs/smoke.json --output artifacts/my-learning-run
+python -m wildfire_crmab run --config configs/fixed.json --output artifacts/continuous_fixed
+# For a short pipeline check instead, use configs/smoke.json and a new output folder.
 
 # Test the implementation.
 python -m pytest -q
@@ -1399,7 +1418,7 @@ In the demo:
 3. **Inspect an arm** shows construction status and local conditions.
 4. **Allocation values** shows actual feasible Q outputs from a saved checkpoint.
 5. Expand **DQN model and training** to see the architecture, Q-values and learning procedure.
-6. Expand **Pilot results** to see held-out comparisons and validation curves.
+6. Read the run label beside any results: archived segment results are not new cell-placement results.
 
 The offline demo contains precomputed trajectories for one world and budget.
 The local server generates trajectories using the actual Python simulator and
@@ -1457,14 +1476,17 @@ environment still has a model of fire dynamics.
 Its build flag may stay unchanged while nearby fire, fuel and eligibility change.
 Those ongoing passive changes make the construction problem restless.
 
-### “Budget six means six simultaneous constructions.”
+### “No episode cap means unlimited construction before fire moves.”
 
-Episode materials and interval capacity are different. The default allows at
-most two per interval and six material units across the incident.
+Episode materials and interval capacity are different. The default allows one
+cell per interval, then fire advances. It removes the old six-placement incident
+cap; it does not remove the construction-speed limit or the finite horizon.
 
 ### “Selecting two arms means taking two environment steps.”
 
-The subset is one allocation action. Both segments are built before one fire update.
+In an explicitly higher-capacity configuration, the subset is one allocation
+action and all selected cells are cleared before one fire update. The default
+capacity is one, so two-cell allocations are rejected.
 
 ### “A built arm and an ineligible arm are the same.”
 
@@ -1544,9 +1566,9 @@ possible subjects for later research, with their own assumptions and validation.
 
 ### Try answering these before reading the answers
 
-1. Why does the model have 163 outputs when there are only 18 arms?
-2. If two segments are constructed in one decision, how far does fire advance?
-3. What happens when the material budget reaches zero but fire is still active?
+1. Why does the default model have 145 outputs when there are 144 arms?
+2. With an explicitly configured capacity of two, how far does fire advance after a pair?
+3. What happens when an optional finite material budget reaches zero while fire is active?
 4. Can an arm be physically eligible while every allocation selecting it is infeasible?
 5. Why is a passive arm's next state allowed to change?
 6. Why is this not an independent-arm CRMAB?
@@ -1560,8 +1582,7 @@ possible subjects for later research, with their own assumptions and validation.
 <details>
 <summary>Answers</summary>
 
-1. Outputs represent complete catalogue allocations, including empty, one-arm
-   and valid two-arm subsets.
+1. There is one output for wait and one for each of the 144 single-cell arms.
 2. One physical interval, after both constructions are complete.
 3. The agent chooses the empty allocation and fire continues until extinction or
    the observed horizon.

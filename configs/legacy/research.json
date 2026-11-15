@@ -1,0 +1,49 @@
+{
+  "name": "research",
+  "environment": {
+    "grid_size": 12,
+    "segment_length": 3,
+    "candidate_stride": 4,
+    "capacity": 2,
+    "resource_cost": 1,
+    "initial_budget": 6,
+    "max_steps": 40,
+    "burn_duration": 3,
+    "base_spread": 0.24,
+    "wind_bias": 1.2,
+    "settlement_weight": 10.0,
+    "clearing_weight": 1.0,
+    "max_allocations": 5000,
+    "wind_physics": true,
+    "placement_mode": "segments",
+    "include_settlement": true
+  },
+  "training": {
+    "steps": 200000,
+    "seeds": [
+      11,
+      22,
+      33,
+      44,
+      55
+    ],
+    "budgets": [
+      2,
+      4,
+      6
+    ],
+    "batch_size": 64,
+    "replay_capacity": 20000,
+    "learning_starts": 1000,
+    "train_every": 4,
+    "target_every": 1000,
+    "validation_every": 10000,
+    "validation_worlds": 20,
+    "gamma": 0.99,
+    "learning_rate": 0.0003
+  },
+  "evaluation": {
+    "worlds": 120,
+    "bootstrap_samples": 2000
+  }
+}

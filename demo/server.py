@@ -18,8 +18,10 @@ class Handler(SimpleHTTPRequestHandler):
                     data = experiment_results()
                 elif url.path == "/api/episode":
                     params = parse_qs(url.query)
-                    data = rollout(params.get("policy", ["dqn"])[0],
-                                   int(params.get("seed", [42])[0]), int(params.get("budget", [6])[0]))
+                    data = rollout(params.get("policy", ["wind_heuristic"])[0],
+                                   int(params.get("seed", [42])[0]),
+                                   None if params.get("budget", ["none"])[0] == "none"
+                                   else int(params["budget"][0]))
                 else:
                     raise ValueError("Unknown API route")
                 status = 200

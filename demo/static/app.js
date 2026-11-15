@@ -1,78 +1,162 @@
-const $=id=>document.getElementById(id);
-let episode=null, frameIndex=0, timer=null, model=null;
-const names={dqn:'DQN · wind aware',dqn_no_wind:'DQN · wind unaware',random:'Random feasible allocation',greedy:'Near-fire heuristic',wind_heuristic:'Wind placement heuristic',no_intervention:'No construction'};
-const fmt=(v,n=3)=>Number(v).toFixed(n);
-const pct=v=>(100*v).toFixed(1)+'%';
-const subset=a=>a.length?'Arms '+a.join(' + '):'Empty allocation';
-function stop(){if(timer)clearInterval(timer);timer=null;$('play').textContent='Play';}
-async function load(){
- stop();$('error').hidden=true;$('reset').disabled=true;$('reset').textContent='Simulating…';
- try{
-  if(window.DEMO_DATA){episode=window.DEMO_DATA.episodes[$('policy').value];}
-  else{let response=await fetch('/api/episode?'+new URLSearchParams({policy:$('policy').value,seed:$('seed').value,budget:$('budget').value}));const candidate=await response.json();if(!response.ok)throw Error(candidate.error);episode=candidate;}
-  frameIndex=0;if(episode.model)model=episode.model;
-  $('timeline').max=episode.frames.length-1;
-  $('arm').innerHTML=episode.arms.map(a=>`<option value="${a.arm_id}">Arm ${a.arm_id}</option>`).join('');
-  if(model){$('parameters').textContent=`${model.parameter_count.toLocaleString()} learned parameters · γ = ${model.gamma} · checkpoint at ${model.training_step.toLocaleString()} training intervals`;$('architecture').textContent=model.architecture;}
-  render();
- }catch(error){$('error').textContent=error.message;$('error').hidden=false;}
- finally{$('reset').disabled=false;$('reset').textContent='Load episode';}
+const $ = id => document.getElementById(id);
+let episode = null, frameIndex = 0, timer = null;
+const names = {dqn: 'DQN with wind', dqn_no_wind: 'DQN without wind input', random: 'Random placement',
+  greedy: 'Near-fire heuristic', wind_heuristic: 'Wind placement heuristic', no_intervention: 'No construction'};
+const fmt = (value, digits = 3) => Number(value).toFixed(digits);
+const pct = value => (100 * value).toFixed(1) + '%';
+const subset = cells => cells.length ? 'Clear cell ' + cells.join(', ') : 'Wait';
+function stop() {
+  if (timer) clearInterval(timer);
+  timer = null;
+  $('play').textContent = 'Play';
 }
-function drawGrid(f){
- const c=$('grid'),ctx=c.getContext('2d'),n=episode.config.grid_size,size=c.width/n;
- ctx.clearRect(0,0,c.width,c.height);
- for(let r=0;r<n;r++)for(let col=0;col<n;col++){ctx.fillStyle=`rgb(${f.rgb[r][col].join(',')})`;ctx.fillRect(col*size,r*size,size,size);ctx.strokeStyle='rgba(255,255,255,.08)';ctx.strokeRect(col*size,r*size,size,size);}
- for(const arm of episode.arms){
-  const selected=f.allocation.includes(arm.arm_id),focus=$('arm-details').open&&arm.arm_id===Number($('arm').value);
-  if(!$('candidates').checked&&!selected&&!focus)continue;
-  const [first,last]=[arm.cells[0],arm.cells.at(-1)];
-  ctx.beginPath();ctx.moveTo((first[1]+.5)*size,(first[0]+.5)*size);ctx.lineTo((last[1]+.5)*size,(last[0]+.5)*size);
-  ctx.strokeStyle=selected?'#ffe176':focus?'#fff':f.eligible[arm.arm_id]?'rgba(255,255,255,.48)':'rgba(20,40,25,.25)';
-  ctx.lineWidth=selected?7:focus?4:2;ctx.setLineDash(selected||focus?[]:[5,4]);ctx.stroke();ctx.setLineDash([]);
-  if(selected||focus){ctx.fillStyle='#172e22';ctx.fillRect((arm.col+.5)*size-10,(arm.row+.5)*size-28,24,20);ctx.fillStyle=selected?'#ffe176':'#fff';ctx.font='bold 14px system-ui';ctx.fillText(arm.arm_id,(arm.col+.5)*size-6,(arm.row+.5)*size-13);}
- }
+async function load() {
+  stop();
+  $('error').hidden = true;
+  $('reset').disabled = true;
+  $('reset').textContent = 'Simulating…';
+  try {
+    let candidate;
+    if (window.DEMO_DATA) {
+      candidate = window.DEMO_DATA.episodes[$('policy').value];
+      if (!candidate) throw Error(window.DEMO_DATA.unavailable[$('policy').value] || 'Replay unavailable');
+    } else {
+      const query = new URLSearchParams({policy: $('policy').value, seed: $('seed').value, budget: $('budget').value});
+      const response = await fetch('/api/episode?' + query);
+      candidate = await response.json();
+      if (!response.ok) throw Error(candidate.error);
+    }
+    episode = candidate;
+    frameIndex = 0;
+    $('mode').textContent = (window.DEMO_DATA ? 'Offline replay: ' : 'Simulator: ') + names[episode.policy];
+    $('timeline').disabled = false;
+    $('timeline').max = episode.frames.length - 1;
+    $('arm').innerHTML = episode.arms.map(arm => `<option value="${arm.arm_id}">Cell ${arm.arm_id} (${arm.row}, ${arm.col})</option>`).join('');
+    $('dimensions').textContent = `${episode.arms.length} cell arms · ${episode.action_count} Q outputs, including wait`;
+    $('capacity').textContent = episode.config.capacity + ' cell' + (episode.config.capacity === 1 ? '' : 's');
+    $('parameters').textContent = episode.model ? `${episode.model.parameter_count.toLocaleString()} learned parameters · γ = ${episode.model.gamma} · checkpoint at ${episode.model.training_step.toLocaleString()} training intervals` : 'No neural network is used by this baseline.';
+    $('architecture').textContent = episode.model ? episode.model.architecture : 'Choose a DQN policy with matching saved weights to inspect its network.';
+    render();
+  } catch (error) {
+    $('error').textContent = error.message;
+    $('error').hidden = false;
+    $('policy').value = episode ? episode.policy : 'wind_heuristic';
+    if (!episode) for (const id of ['step', 'back', 'play', 'timeline']) $(id).disabled = true;
+  } finally {
+    $('reset').disabled = false;
+    $('reset').textContent = 'Load episode';
+  }
 }
-function render(){
- if(!episode)return;const f=episode.frames[frameIndex];$('timeline').value=frameIndex;
- $('tick').textContent=f.t+' / '+episode.config.max_steps;$('materials').textContent=f.budget+' / '+episode.initial_budget;
- $('built').textContent=f.built.filter(Boolean).length+' / '+episode.arms.length;$('affected').textContent=pct(f.affected);
- $('allocation').textContent=f.finished?'Episode finished':subset(f.allocation);
- $('action-detail').textContent=f.finished?episode.ending:`Action ${f.action} · ${f.allocation.length} active arms · ${f.allocation.length*episode.config.resource_cost} material units`;
- $('feasible').textContent=f.feasible+' / '+episode.action_count;
- $('observed-wind').textContent=f.wind_observation.map(x=>fmt(x,2)).join(', ');
- $('actual-wind').textContent=episode.actual_wind.map(x=>fmt(x,2)).join(', ');
- $('ending').textContent=f.finished?episode.ending:`${f.active_fire} burning cells · asset damage ${pct(f.asset_damage)} · wind stays fixed throughout this episode`;
- $('q-note').textContent=episode.model?'Actual feasible Q values; larger is better. '+(episode.action_count-f.feasible)+' allocation entries are masked.':'This baseline uses a placement rule rather than a learned Q network.';
- $('q-values').innerHTML=f.q_values.length?f.q_values.map(q=>`<tr><td>${subset(q.arms)}</td><td>${fmt(q.q)}</td></tr>`).join(''):'<tr><td colspan="2">'+(f.finished?'No decision at the episode boundary.':'No DQN Q values for this policy.')+'</td></tr>';
- $('checkpoint').textContent=episode.model?episode.model.checkpoint+' · selected at step '+episode.model.training_step:'Observation-only baseline';
- const i=Number($('arm').value),features=f.arm_features[i];
- $('arm-state').innerHTML=[['Construction',f.built[i]?'Built · persistent':'Unbuilt'],['Eligibility',f.eligible[i]?'Available':'Unavailable'],['Local burning',pct(features[3])],['Local fuel',fmt(features[2])],['Orientation',episode.arms[i].vertical?'Vertical':'Horizontal']].map(([a,b])=>`<div class="fact"><span>${a}</span><b>${b}</b></div>`).join('');
- $('reward').textContent='Reward '+fmt(f.previous_reward);$('return').textContent=fmt(f.discounted_return);
- $('transition-text').textContent=frameIndex?`${subset(episode.frames[frameIndex-1].allocation)} executed. Fire advanced once; existing firebreaks remained.`:'Press Next step to run the decision above.';
- $('back').disabled=frameIndex===0;$('step').disabled=f.finished;$('play').disabled=f.finished;
- drawGrid(f);
+function drawGrid(frame) {
+  const canvas = $('grid'), ctx = canvas.getContext('2d'), n = episode.config.grid_size, size = canvas.width / n;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (let row = 0; row < n; row++) for (let col = 0; col < n; col++) {
+    ctx.fillStyle = `rgb(${frame.rgb[row][col].join(',')})`;
+    ctx.fillRect(col * size, row * size, size, size);
+    ctx.strokeStyle = 'rgba(255,255,255,.12)';
+    ctx.strokeRect(col * size, row * size, size, size);
+  }
+  for (const arm of episode.arms) {
+    const selected = frame.allocation.includes(arm.arm_id);
+    const focus = $('arm-details').open && arm.arm_id === Number($('arm').value);
+    if (!selected && !focus && (!$('candidates').checked || !frame.eligible[arm.arm_id])) continue;
+    ctx.strokeStyle = selected ? '#ffe176' : focus ? '#fff' : 'rgba(255,255,255,.35)';
+    ctx.lineWidth = selected ? 4 : focus ? 3 : 1;
+    for (const [row, col] of arm.cells) ctx.strokeRect(col * size + 3, row * size + 3, size - 6, size - 6);
+    if (selected || focus) {
+      ctx.fillStyle = '#172e22';
+      ctx.fillRect(arm.col * size + 5, arm.row * size + 5, 30, 21);
+      ctx.fillStyle = selected ? '#ffe176' : '#fff';
+      ctx.font = 'bold 13px system-ui';
+      ctx.fillText(arm.arm_id, arm.col * size + 8, arm.row * size + 20);
+    }
+  }
 }
-async function results(){
- try{
-  const data=window.DEMO_DATA?window.DEMO_DATA.results:await(await fetch('/api/results')).json();
-  $('result-status').textContent=data.status;
-  const methods=Object.keys(names),cell=(m,metric)=>data.rows.find(r=>r.method===m&&r.metric===metric);
-  $('comparison').querySelector('tbody').innerHTML=data.rows.length?methods.map(m=>{const r=cell(m,'discounted_return');return `<tr><td>${names[m]}</td><td>${fmt(r.mean)} [${fmt(r.ci_low)}, ${fmt(r.ci_high)}]</td><td>${pct(cell(m,'affected_fraction').mean)}</td><td>${pct(cell(m,'settlement_survived').mean)}</td></tr>`}).join(''):'<tr><td colspan="4">Evaluation appears after the pilot finishes.</td></tr>';
-  const c=$('learning'),ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);if(!data.learning.length)return;
-  const lo=Math.min(...data.learning.map(r=>+r.discounted_return))-.1,hi=Math.max(...data.learning.map(r=>+r.discounted_return))+.1;
-  const x=s=>60+(+s/10000)*910,y=v=>270-(+v-lo)/(hi-lo)*235;
-  ctx.font='13px system-ui';ctx.fillStyle='#5c7263';ctx.strokeStyle='#dce5dc';
-  for(let i=0;i<5;i++){const v=lo+(hi-lo)*i/4;ctx.beginPath();ctx.moveTo(55,y(v));ctx.lineTo(980,y(v));ctx.stroke();ctx.fillText(fmt(v,2),4,y(v)+4);}
-  for(const step of [2500,5000,7500,10000])ctx.fillText(step.toLocaleString(),x(step)-25,300);
-  for(const method of ['dqn','dqn_no_wind'])for(const seed of [11,22,33]){const rows=data.learning.filter(r=>r.method===method&&r.seed===seed);ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(x(r.step),y(r.discounted_return)):ctx.moveTo(x(r.step),y(r.discounted_return)));ctx.strokeStyle=method==='dqn'?'#34734d':'#d98543';ctx.globalAlpha=seed===11?1:.55;ctx.lineWidth=2.5;ctx.stroke();}ctx.globalAlpha=1;
- }catch(e){$('result-status').textContent='Could not load results: '+e.message;}
+function render() {
+  if (!episode) return;
+  const frame = episode.frames[frameIndex];
+  $('timeline').value = frameIndex;
+  $('tick').textContent = frame.t + ' / ' + episode.config.max_steps;
+  $('materials').textContent = frame.budget === null ? 'No episode cap' : frame.budget + ' / ' + episode.initial_budget;
+  $('built').textContent = frame.built.filter(Boolean).length + ' / ' + episode.arms.length;
+  $('affected').textContent = pct(frame.affected);
+  $('allocation').textContent = frame.finished ? 'Episode finished' : subset(frame.allocation);
+  $('action-detail').textContent = frame.finished ? episode.ending : `Action ${frame.action} · ${frame.allocation.length} active arms · ${frame.allocation.length * episode.config.resource_cost} construction units`;
+  $('feasible').textContent = frame.feasible + ' / ' + episode.action_count;
+  $('observed-wind').textContent = frame.wind_observation.map(value => fmt(value, 2)).join(', ');
+  $('actual-wind').textContent = episode.actual_wind.map(value => fmt(value, 2)).join(', ');
+  $('ending').textContent = frame.finished ? episode.ending : `${frame.active_fire} burning cells · wind stays fixed throughout this episode`;
+  $('q-note').textContent = episode.model ? 'Actual feasible Q values; larger is better. ' + (episode.action_count - frame.feasible) + ' entries are masked.' : 'This baseline follows a placement rule and has no learned Q values.';
+  $('q-values').innerHTML = frame.q_values.length ? frame.q_values.map(q => `<tr><td>${subset(q.arms)}</td><td>${fmt(q.q)}</td></tr>`).join('') : '<tr><td colspan="2">' + (frame.finished ? 'No decision at the episode boundary.' : 'No DQN Q values for this policy.') + '</td></tr>';
+  $('checkpoint').textContent = episode.model ? episode.model.checkpoint + ' · selected at step ' + episode.model.training_step : 'Observation-only baseline';
+  const index = Number($('arm').value), features = frame.arm_features[index], arm = episode.arms[index];
+  $('arm-state').innerHTML = [['Construction', frame.built[index] ? 'Built; persistent' : 'Unbuilt'], ['Eligibility', frame.eligible[index] ? 'Available' : 'Unavailable'], ['Local burning', pct(features[3])], ['Local fuel', fmt(features[2])], ['Coordinates', `(${arm.row}, ${arm.col})`]].map(([label, value]) => `<div class="fact"><span>${label}</span><b>${value}</b></div>`).join('');
+  $('reward').textContent = 'Reward ' + fmt(frame.previous_reward);
+  $('return').textContent = fmt(frame.discounted_return);
+  $('transition-text').textContent = frameIndex ? `${subset(episode.frames[frameIndex - 1].allocation)} executed. Fire advanced once; existing firebreaks remained.` : 'Press Next step to run the decision above.';
+  $('back').disabled = frameIndex === 0;
+  $('step').disabled = frame.finished;
+  $('play').disabled = frame.finished;
+  drawGrid(frame);
 }
-$('results').addEventListener('toggle',()=>{if($('results').open)results();});
-$('arm-details').addEventListener('toggle',render);
-$('reset').onclick=load;$('policy').onchange=load;$('arm').onchange=render;$('candidates').onchange=render;
-$('step').onclick=()=>{stop();frameIndex=Math.min(frameIndex+1,episode.frames.length-1);render();};
-$('back').onclick=()=>{stop();frameIndex=Math.max(0,frameIndex-1);render();};
-$('timeline').oninput=()=>{stop();frameIndex=Number($('timeline').value);render();};
-$('play').onclick=()=>{if(timer){stop();return;}$('play').textContent='Pause';timer=setInterval(()=>{frameIndex=Math.min(frameIndex+1,episode.frames.length-1);render();if(frameIndex===episode.frames.length-1)stop();},600);};
-if(window.DEMO_DATA){$('mode').textContent='Offline replay · real saved models';$('seed').disabled=true;$('budget').disabled=true;$('scenario-note').textContent='Portable snapshot: world 42, budget 6, all six policies. Run demo/server.py to choose other worlds and budgets.';}
-load();results();
+async function results() {
+  try {
+    const data = window.DEMO_DATA ? window.DEMO_DATA.results : await (await fetch('/api/results')).json();
+    $('result-status').textContent = data.status;
+    const metric = (method, key) => data.rows.find(row => row.method === method && row.metric === key);
+    const methods = Object.keys(names).filter(method => metric(method, 'discounted_return'));
+    $('comparison').querySelector('tbody').innerHTML = methods.length ? methods.map(method => {
+      const result = metric(method, 'discounted_return'), built = metric(method, 'budget_used');
+      return `<tr><td>${names[method]}</td><td>${fmt(result.mean)} [${fmt(result.ci_low)}, ${fmt(result.ci_high)}]</td><td>${pct(metric(method, 'affected_fraction').mean)}</td><td>${built ? fmt(built.mean, 1) : '—'}</td></tr>`;
+    }).join('') : '<tr><td colspan="4">New diagnostic results have not been generated.</td></tr>';
+    const canvas = $('learning'), ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!data.learning.length) return;
+    const lo = Math.min(...data.learning.map(row => +row.discounted_return)) - .05;
+    const hi = Math.max(...data.learning.map(row => +row.discounted_return)) + .05;
+    const maxStep = Math.max(...data.learning.map(row => +row.step));
+    const x = step => 60 + (+step / maxStep) * 910, y = value => 270 - (+value - lo) / (hi - lo) * 235;
+    ctx.font = '13px system-ui';
+    ctx.fillStyle = '#555';
+    ctx.strokeStyle = '#ddd';
+    for (let i = 0; i < 5; i++) {
+      const value = lo + (hi - lo) * i / 4;
+      ctx.beginPath(); ctx.moveTo(55, y(value)); ctx.lineTo(980, y(value)); ctx.stroke();
+      ctx.fillText(fmt(value, 2), 4, y(value) + 4);
+    }
+    for (let i = 1; i <= 4; i++) ctx.fillText(Math.round(maxStep * i / 4).toLocaleString(), x(maxStep * i / 4) - 25, 300);
+    for (const method of ['dqn', 'dqn_no_wind']) for (const seed of new Set(data.learning.map(row => row.seed))) {
+      const rows = data.learning.filter(row => row.method === method && row.seed === seed);
+      ctx.beginPath();
+      rows.forEach((row, index) => index ? ctx.lineTo(x(row.step), y(row.discounted_return)) : ctx.moveTo(x(row.step), y(row.discounted_return)));
+      ctx.strokeStyle = method === 'dqn' ? '#34734d' : '#d98543';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  } catch (error) { $('result-status').textContent = 'Could not load results: ' + error.message; }
+}
+$('results').addEventListener('toggle', () => { if ($('results').open) results(); });
+$('arm-details').addEventListener('toggle', render);
+$('reset').onclick = load;
+$('policy').onchange = load;
+$('arm').onchange = render;
+$('candidates').onchange = render;
+$('step').onclick = () => { if (!episode) return; stop(); frameIndex = Math.min(frameIndex + 1, episode.frames.length - 1); render(); };
+$('back').onclick = () => { if (!episode) return; stop(); frameIndex = Math.max(0, frameIndex - 1); render(); };
+$('timeline').oninput = () => { stop(); frameIndex = Number($('timeline').value); render(); };
+$('play').onclick = () => {
+  if (!episode) return;
+  if (timer) { stop(); return; }
+  $('play').textContent = 'Pause';
+  timer = setInterval(() => { frameIndex = Math.min(frameIndex + 1, episode.frames.length - 1); render(); if (frameIndex === episode.frames.length - 1) stop(); }, 600);
+};
+if (window.DEMO_DATA) {
+  $('seed').disabled = true;
+  $('budget').disabled = true;
+  for (const option of $('policy').options) {
+    if (!window.DEMO_DATA.episodes[option.value]) { option.disabled = true; option.textContent += ' (weights unavailable)'; }
+  }
+  $('scenario-note').textContent = 'Offline replay: seed 42, one construction per interval, no episode cap. Run demo/server.py to generate other episodes.';
+}
+load();
+results();
