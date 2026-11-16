@@ -1,3 +1,4 @@
 # Measured results
 
-`pilot/` contains the three-seed comparison; `smoke/` verifies integration only. These snapshots were generated from this CRMAB implementation, not imported from the sibling project. Full weights and frozen source copies are in `artifacts/pilot/` and `artifacts/smoke/`. Each snapshot preserves the original run manifest and records its complete-run path and checkpoint hashes in `export_manifest.json`.
+- `continuous_fixed/`: current cell construction diagnostic, 3 learning seeds, 10,000 transitions per DQN variant/seed, 32 held-out spread realizations. Complete weights: `artifacts/continuous_fixed/`.
+- `pilot/` and `smoke/`: historical separated-segment experiments. Their findings do not measure the new geometry. Original outputs are preserved.

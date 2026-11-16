@@ -35,10 +35,9 @@ requires retraining: output IDs refer to a fixed candidate catalogue.
 - `ArmState`: built/eligible flags and neighbourhood arrays. Arrays are copied so
   a snapshot does not change after subsequent steps.
 
-Default centers are rows and columns 2, 6 and 10 (zero based), with both orientations.
-Horizontal/vertical candidates at the same center overlap and cannot be selected
-together. Candidates intersecting the random protected asset become ineligible.
-There is no action to construct outside this predeclared catalogue.
+The default has one construction arm per cell, including boundaries: ID=row*n+col.
+Adjacent cleared cells can join into a barrier. Already cleared or ever-burned
+cells are ineligible. Sparse segments are available only in explicit legacy mode.
 
 [`environment/allocations.py`](../src/wildfire_crmab/environment/allocations.py)
 defines `AllocationCatalogue`. Its `subsets[j]` is the full list of arm IDs activated
@@ -83,8 +82,8 @@ The observation contains:
 | Entry | Shape | Meaning |
 | --- | --- | --- |
 | `map` | 6×12×12 | Fuel, burning, age/D, ever ignited, cleared, asset |
-| `arms` | 18×10 | Explicit construction state and local physical features |
-| `context` | 4 | Wind row/column, budget/fixed scale, remaining horizon fraction |
+| `arms` | 144×10 | Explicit construction state and local physical features |
+| `context` | 4 | Wind row/column, budget/fixed scale, or -1 for unlimited, remaining horizon fraction |
 
 Arm columns in order: built, eligible, mean local fuel, local burning fraction,
 mean local age/D, local ever-burned fraction, local cleared fraction, normalized
@@ -93,7 +92,7 @@ center row, normalized center column, vertical indicator. Every feature is in
 
 [`agents/network.py`](../src/wildfire_crmab/agents/network.py) encodes maps with a
 CNN, arm features with a dense layer, then joins those with context. It outputs
-one Q value per **complete subset**, 163 by default. `bellman_targets` uses:
+one Q value per **complete subset**, 145 by default (65 in the 8×8 diagnostic). `bellman_targets` uses:
 
     y = r                              at an episode boundary
     y = r + gamma max_(j feasible) Q_target(o_next,j) otherwise.
@@ -105,8 +104,7 @@ No Whittle index or independent per-arm Q decomposition is used.
 
 [`agents/replay.py`](../src/wildfire_crmab/agents/replay.py) copies transitions and
 their current/next masks, rejecting infeasible experience. All float arrays are
-stored as float32. The default pilot buffer uses roughly 84 MB for two observation
-arrays plus masks/metadata. `observations.py` validates schema and finite values;
+stored as float32. Replay memory grows with grid size, arm count and buffer capacity. `observations.py` validates schema and finite values;
 `checkpoints.py` binds trained outputs to geometry, environment and visibility.
 
 [`agents/baselines.py`](../src/wildfire_crmab/agents/baselines.py) contains four

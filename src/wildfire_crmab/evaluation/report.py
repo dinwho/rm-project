@@ -19,7 +19,8 @@ def report(config, output, rows, summary, paired):
              f"{config['training']['steps']:,} physical transitions per seed and DQN variant; "
              f"{config['evaluation']['worlds']} held-out {unit}; episode budgets: {budgets}.", "",
              "Every DQN action is a simultaneous feasible construction subset. Wind is constant within each world. "
-             "Both DQNs use identical wind-driven physics; the unaware variant withholds only wind observations.", "",
+             + ("Both DQNs use identical wind-driven physics; the unaware variant withholds only wind observations."
+              if environment["wind_physics"] else "Wind physics is disabled for both DQNs: this is a separate physics ablation."), "",
              f"Placement mode: `{environment['placement_mode']}`. At most {environment['capacity']} "
              "construction sites are built before one synchronous fire update. Clearing and burning both reduce vegetation.", ""]
     if fixed:

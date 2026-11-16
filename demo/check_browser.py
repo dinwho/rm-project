@@ -11,8 +11,10 @@ with sync_playwright() as p:
     for url in ("http://127.0.0.1:8765", (folder/"demo.html").as_uri()):
         page.goto(url)
         page.wait_for_function("document.getElementById('tick').textContent === '0 / 40'")
+        page.locator("#policy").select_option("dqn")
+        page.wait_for_function("document.querySelectorAll('#q-values tr').length === 5")
         assert page.locator("#q-values tr").count() == 5
-        assert "pilot/models/dqn" in page.locator("#checkpoint").text_content()
+        assert "continuous_fixed/models/dqn" in page.locator("#checkpoint").text_content()
         page.locator("#step").click()
         assert page.locator("#tick").inner_text() == "1 / 40"
         page.locator("#back").click()

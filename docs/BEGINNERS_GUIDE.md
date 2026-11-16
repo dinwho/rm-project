@@ -1259,7 +1259,7 @@ The following measurements used 18 separated three-cell segments, capacity two,
 budgets 2/4/6 and a weighted settlement objective. They remain useful for learning
 how to read results, but cannot establish performance of continuous placement.
 Current fixed-scenario results are in
-[`artifacts/continuous_fixed/results/RESULTS.md`](../artifacts/continuous_fixed/results/RESULTS.md)
+[`artifacts/continuous_fixed/RESULTS.md`](../artifacts/continuous_fixed/RESULTS.md)
 when that run has completed. Its fixed wind is a learning diagnostic, not evidence
 that wind awareness generalizes across different winds.
 

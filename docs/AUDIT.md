@@ -1,3 +1,31 @@
+# Current change: connected cell firebreaks
+
+The new default replaces 18 separated length-three segments with one persistent
+construction opportunity per grid cell, including boundary anchors. Capacity is
+one cell per physical fire interval; the episode budget is `None` (unlimited).
+Finite budgets and the old geometry remain explicit options. Default vegetation
+is uniform with no protected settlement; both clearing and burning are counted.
+
+| Component | Current implementation |
+| --- | --- |
+| Cell arm / neighbourhood | `CandidateArms`: row-major cells, clipped 3×3 local states |
+| Persistent activation | `WildfireEnv.step`: clear fuel and set build/firebreak bits |
+| Passive evolution | Every construction/wait is followed by the same shared fire update |
+| Eligibility | Existing fuel, never burned, never built; burning cells cannot be extinguished |
+| Capacity / optional budget | `AllocationCatalogue` and strict pre-mutation mask check |
+| Unlimited accounting | `budget=None`, separate cumulative `budget_used`; context budget=-1 |
+| Q-values | Existing network derives output count from catalogue: cell actions plus wait |
+| Fixed diagnostic | Fixed ignition/layout/wind, independently seeded spread realizations |
+| Comparisons | Same masks and randomness for random/threat baselines and both DQNs |
+
+Reused: eight-neighbour spread, DQN optimization, replay and target masking.
+Changed: geometry, defaults, nullable budget handling, experiment protocol, examples
+and demos. No changes were made to the sibling project. Full specifications and
+limits are in [FORMULATION.md](FORMULATION.md). The following records the earlier
+implementation history; its segment counts and results are historical.
+
+---
+
 # Audit and implementation map
 
 Work belongs in `/home/d1nu/LEBRON/BLOND/research`. It initially contained no files.

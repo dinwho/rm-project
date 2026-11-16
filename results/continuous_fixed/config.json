@@ -1,0 +1,54 @@
+{
+  "name": "cells_fixed_scenario",
+  "environment": {
+    "grid_size": 8,
+    "placement_mode": "cells",
+    "segment_length": 1,
+    "candidate_stride": 1,
+    "capacity": 1,
+    "resource_cost": 1,
+    "initial_budget": null,
+    "max_steps": 40,
+    "burn_duration": 3,
+    "base_spread": 0.24,
+    "wind_bias": 1.2,
+    "settlement_weight": 0.0,
+    "clearing_weight": 1.0,
+    "max_allocations": 5000,
+    "wind_physics": true,
+    "include_settlement": false,
+    "fixed_ignition": [
+      0,
+      0
+    ],
+    "fixed_wind": [
+      0.0,
+      0.5
+    ],
+    "fixed_layout_seed": 0
+  },
+  "training": {
+    "steps": 10000,
+    "seeds": [
+      11,
+      22,
+      33
+    ],
+    "budgets": [
+      null
+    ],
+    "batch_size": 64,
+    "replay_capacity": 10000,
+    "learning_starts": 500,
+    "train_every": 4,
+    "target_every": 500,
+    "validation_every": 2500,
+    "validation_worlds": 12,
+    "gamma": 0.99,
+    "learning_rate": 0.0003
+  },
+  "evaluation": {
+    "worlds": 32,
+    "bootstrap_samples": 1000
+  }
+}

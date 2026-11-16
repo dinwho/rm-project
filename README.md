@@ -92,11 +92,11 @@ src/wildfire_crmab/
   evaluation/            matched scenarios, policy rollouts, statistics, reports
   config.py, cli.py      experiment validation and commands
 examples/                short executable examples
- demo/                   simple animation and optional plain browser replay
- docs/                   formulation, explanations, code map and checks
- tests/                  environment, agents, learning, evaluation and demo checks
- results/                compact measured runs; older segment runs clearly labelled
- artifacts/              full local runs with weights and source snapshots
+demo/                   simple animation and optional plain browser replay
+docs/                   formulation, explanations, code map and checks
+tests/                  environment, agents, learning, evaluation and demo checks
+results/                compact measured runs; older segment runs clearly labelled
+artifacts/              full local runs with weights and source snapshots
 ```
 
 Baselines are no construction, random feasible placement, immediate fire-threat
