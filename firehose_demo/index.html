@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Firehose — recorded policy comparison</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>Firehose</h1>
+    <p>Watch a saved neural policy treat a wildfire, one cell at a time.</p>
+    <p class="muted">Real Cell2Fire episode recordings. Playback runs saved-policy inference results; it does not train a model.</p>
+  </header>
+  <p id="message" role="status">Loading recorded episodes…</p>
+  <section id="viewer" hidden aria-label="Policy comparison">
+    <div class="settings">
+      <label>Map / neural checkpoint<select id="checkpoint"></select></label>
+      <label>Recorded seed<select id="seed"></select></label>
+      <label>Compare with<select id="baseline"></select></label>
+    </div>
+    <p id="scenario" class="muted"></p>
+    <div class="playback">
+      <button id="back" type="button">Back</button>
+      <button id="play" type="button">Play</button>
+      <button id="next" type="button">Next step</button>
+      <label class="timeline-label">Interval <output id="interval">0</output><input id="timeline" type="range" min="0" max="0" value="0" aria-label="Recorded decision interval"></label>
+      <label>Speed<select id="speed"><option value="900">Slow</option><option value="450" selected>Normal</option><option value="150">Fast</option></select></label>
+    </div>
+    <div class="panels">
+      <article id="left-panel">
+        <h2 id="left-title">Neural policy</h2>
+        <p id="left-subtitle" class="subtitle"></p>
+        <canvas id="left-grid" width="600" height="600" aria-label="Neural policy wildfire grid"></canvas>
+        <p id="left-state" class="state"></p>
+        <dl class="numbers">
+          <div><dt>Fire-affected cells</dt><dd id="left-burning">—</dd></div>
+          <div><dt>Treated cells</dt><dd id="left-harvested">—</dd></div>
+          <div><dt>Last reward</dt><dd id="left-reward">—</dd></div>
+          <div><dt>Total return</dt><dd id="left-return">—</dd></div>
+        </dl>
+        <p id="left-action" class="muted"></p>
+      </article>
+      <article id="right-panel">
+        <h2 id="right-title">Comparison policy</h2>
+        <p id="right-subtitle" class="subtitle"></p>
+        <canvas id="right-grid" width="600" height="600" aria-label="Comparison policy wildfire grid"></canvas>
+        <p id="right-state" class="state"></p>
+        <dl class="numbers">
+          <div><dt>Fire-affected cells</dt><dd id="right-burning">—</dd></div>
+          <div><dt>Treated cells</dt><dd id="right-harvested">—</dd></div>
+          <div><dt>Last reward</dt><dd id="right-reward">—</dd></div>
+          <div><dt>Total return</dt><dd id="right-return">—</dd></div>
+        </dl>
+        <p id="right-action" class="muted"></p>
+      </article>
+    </div>
+    <p class="legend"><span><i class="fire"></i>Fire-affected</span><span><i class="harvest"></i>Treated</span><span><i class="ignition"></i>Ignition marker</span><span><i class="vegetation"></i>Vegetation colours vary by type</span><span><i class="selected"></i>Last selected cell</span></p>
+    <p class="explanation">Treating a cell prevents future ignition and extinguishes it if it is burning. Neighbouring treated cells can form a barrier. Each panel follows its own policy on the same recorded scenario; an episode that ends earlier stays on its final frame.</p>
+    <details>
+      <summary>What am I looking at?</summary>
+      <p><strong>Seed:</strong> the identifier controlling random choices in a recorded scenario. Selecting a seed here chooses an existing recording; it does not train or generate a new model.</p>
+      <p><strong>Episode:</strong> one complete wildfire simulation. <strong>Interval:</strong> one policy decision followed by the configured number of simulator steps.</p>
+      <p><strong>Neural checkpoint:</strong> saved learned network weights. The policy selects a cell from its current observation. A successful connected barrier must emerge from successive decisions.</p>
+      <p><strong>Reward:</strong> the score after one decision. <strong>Total return:</strong> the sum of rewards in this recording. Higher is better. A single replay is an illustration, not proof that a policy performs best overall.</p>
+      <p id="timing-note"></p>
+    </details>
+    <details id="trajectory-details">
+      <summary>Full decision trajectory</summary>
+      <p class="muted">Coordinates are zero-based (row, column). These are recorded actions, not suggested future actions.</p>
+      <div class="table-scroll"><table id="trajectory"><thead><tr><th>Interval</th><th>Neural cell</th><th>Reward</th><th>Fire-affected</th><th>Comparison cell</th><th>Reward</th><th>Fire-affected</th></tr></thead><tbody></tbody></table></div>
+    </details>
+    <details id="results-details">
+      <summary>Recorded episode outcomes</summary>
+      <p class="muted">Individual outcomes for these saved recordings. Red cells in the original exported state combine burning and burned cells. These are fire-affected counts, not a verified active-fire count.</p>
+      <div class="table-scroll"><table id="results"><thead><tr><th>Policy</th><th>Seed</th><th>Intervals</th><th>Fire-affected</th><th>Treated</th><th>Return</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+    </details>
+    <details id="source-details">
+      <summary>Checkpoint and simulator details</summary>
+      <p id="checkpoint-detail" class="mono"></p>
+      <p id="checkpoint-hash" class="mono"></p>
+      <p id="training-detail"></p>
+      <pre id="provenance"></pre>
+      <p>Reference: <a href="https://github.com/aidan-curtis/firehose" target="_blank" rel="noreferrer">William Shen and Aidan Curtis’s Firehose implementation</a>.</p>
+    </details>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

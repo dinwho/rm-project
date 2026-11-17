@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CRMAB firebreak model</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>CRMAB firebreak model</h1>
+    <p>Spatially coupled cell construction under stochastic fire spread.</p>
+    <p id="mode" class="small">24 × 24 mathematical model</p>
+  </header>
+
+  <div class="controls">
+    <label>Policy
+      <select id="policy">
+        <option value="dqn">Wind-aware DQN</option>
+        <option value="wind_heuristic" selected>Wind heuristic</option>
+        <option value="greedy">Near-fire heuristic</option>
+        <option value="random">Random placement</option>
+        <option value="no_intervention">No construction</option>
+      </select>
+    </label>
+    <label>Seed <input id="seed" type="number" min="0" max="2147483647" value="42"></label>
+    <label>Budget
+      <select id="budget"><option value="none" selected>No episode cap</option><option>0</option><option>2</option><option>4</option><option>6</option></select>
+    </label>
+    <button id="reset">Load episode</button>
+  </div>
+  <p id="scenario-note" class="small">Use the same seed to compare policies on the same world.</p>
+  <p id="error" role="alert" hidden></p>
+
+  <div class="simulation">
+    <div class="board">
+      <label class="check"><input id="candidates" type="checkbox"> Show eligible cells</label>
+      <canvas id="grid" width="720" height="720" aria-label="24 by 24 wildfire state grid and candidate firebreak cells"></canvas>
+      <div class="legend">
+        <span><i class="fuel"></i>Vegetation</span><span><i class="fire"></i>Fire</span>
+        <span><i class="burned"></i>Burned</span><span><i class="break"></i>Firebreak</span>
+        <span><i class="next"></i>Next construction</span>
+      </div>
+      <div class="playback">
+        <button id="back">Back</button><button id="play">Play</button><button id="step">Next step</button>
+        <input id="timeline" type="range" min="0" max="1" value="0" aria-label="Physical interval">
+      </div>
+      <p id="ending" class="small"></p>
+    </div>
+
+    <aside>
+      <h2>Current state</h2>
+      <div class="fact"><span>Interval</span><b id="tick">—</b></div>
+      <div class="fact"><span>Materials left</span><b id="materials">—</b></div>
+      <div class="fact"><span>Built cells</span><b id="built">—</b></div>
+      <div class="fact"><span>Burned or cleared</span><b id="affected">—</b></div>
+      <div class="fact"><span>Capacity per interval</span><b id="capacity">1 cell</b></div>
+      <div class="fact"><span>Valid allocations</span><b id="feasible">—</b></div>
+      <div class="fact"><span>Actual wind (row, col)</span><b id="actual-wind">—</b></div>
+      <div class="fact"><span>Wind seen by policy</span><b id="observed-wind">—</b></div>
+
+      <h2 class="spaced">Next decision</h2>
+      <p id="allocation">—</p>
+      <p id="action-detail" class="small"></p>
+      <p class="small">Build one eligible cell or wait. Fire then advances once.</p>
+      <p id="reward">Reward —</p>
+      <p id="transition-text" class="small"></p>
+      <p class="small">Discounted return so far: <span id="return">0.000</span></p>
+
+      <details id="arm-details">
+        <summary>Inspect a candidate arm</summary>
+        <label>Candidate <select id="arm" aria-label="Arm to inspect"></select></label>
+        <div id="arm-state"></div>
+      </details>
+    </aside>
+  </div>
+
+  <details id="model">
+     <summary>CRMAB mathematical model</summary>
+     <p>At interval <i>t</i>, the state contains fuel, active and prior fire, firebreak cells, wind, resources, and time. The policy chooses an eligible cell or waits; then the shared fire field advances once.</p>
+     <div class="equation" aria-label="State transition and reward equations">
+      <div>X<sub>t+1</sub> = F(X<sub>t</sub>, a<sub>t</sub>, W, U<sub>t</sub>)</div>
+      <div>r<sub>t</sub> = −(B<sub>t</sub> + λ<sub>c</sub>C<sub>t</sub>)/|V| − λ<sub>s</sub>D<sub>t</sub>/max(1, |S|)</div>
+      <div>a<sub>t</sub> ∈ eligible cells ∪ {wait}</div>
+     </div>
+     <p>Fire spread couples neighboring cells, so independent-arm factorization and classical indexability guarantees do not apply. This is a mathematical CRMAB extension, not the Firehose/Cell2Fire simulator.</p>
+     <h2>Masked DQN policy</h2>
+     <p>The network receives six grid layers, ten features per candidate cell, and four context values. It produces one Q-value per cell plus wait; infeasible actions are masked before selection.</p>
+    <p id="dimensions" class="small"></p>
+    <p id="parameters" class="small"></p>
+    <h2>Current allocation values</h2>
+    <p id="q-note" class="small"></p>
+    <table>
+      <thead><tr><th>Selected arms</th><th>Q-value</th></tr></thead>
+      <tbody id="q-values"></tbody>
+    </table>
+    <p id="checkpoint" class="small mono"></p>
+    <details><summary>PyTorch architecture</summary><pre id="architecture"></pre></details>
+    <h2 class="spaced">How it learned</h2>
+    <ol>
+      <li>Try feasible allocations in training episodes, using epsilon-greedy exploration.</li>
+      <li>Store the observation, action, reward and next observation in replay memory.</li>
+      <li>Sample past experiences and update the network towards a masked Bellman target.</li>
+      <li>Periodically copy online weights to the target network; evaluate on separate validation worlds.</li>
+    </ol>
+    <p><code>target = reward + gamma × best feasible next Q</code></p>
+    <p>At the episode boundary, the target is just the reward. New burning and clearing
+       are penalized. The construction limit is one cell per fire interval.</p>
+    <p>This demo uses saved weights. Playback does not train the network.</p>
+    <p class="small">Firebreaks affect neighbouring arms, so this is a spatially coupled
+       CRMAB extension. It does not assume independent arms or inherit indexability guarantees.</p>
+  </details>
+
+  <details id="results">
+    <summary>Matched policy comparisons</summary>
+    <p id="result-status"></p>
+    <div class="table-scroll">
+      <table id="comparison">
+        <thead><tr><th>Policy</th><th>Return [95% interval]</th><th>Burned or cleared</th><th>Cells constructed</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <h2 class="spaced">Paired return differences</h2>
+    <p class="small">DQN minus each baseline on the same held-out worlds and fire-spread draws; positive favors DQN.</p>
+    <div class="table-scroll">
+      <table id="paired-comparison">
+        <thead><tr><th>Contrast</th><th>Mean difference [95% interval]</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+     <h2>Validation learning curve</h2>
+     <p class="small">Mean discounted return across independent DQN training seeds; shaded band is a bootstrap interval across seeds. Higher is better.</p>
+    <canvas id="learning" width="1000" height="320" aria-label="Measured validation return during training"></canvas>
+    <p class="small">Test intervals use paired held-out worlds and fire-spread draws. Learning-curve uncertainty is across training seeds.</p>
+  </details>
+  <footer>Synthetic stochastic model. Each cell is a construction arm. Persistent adjacent construction can form a continuous firebreak.</footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

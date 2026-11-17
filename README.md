@@ -1,111 +1,56 @@
-# Deep Reinforcement Learning for Constrained Wildfire Resource Allocation
+# Firehose — original simulator and trained policies
 
-**CRMAB defines the allocation problem → the simulator implements it → DQN learns a feasible policy.**
+This workspace now runs William Shen and Aidan Curtis's **Firehose**: the original
+Cell2Fire simulator, RGB CNN and Maskable PPO policies. The previous CRMAB and
+two-level experiments are preserved under `archive/previous_project/`.
 
-An arm is a **cell where a firebreak can be constructed**. Selecting an eligible
-arm permanently clears that cell. All other arms remain passive while the fire
-continues spreading. Adjacent placements can form connected barriers and closed
-perimeters; placement is not restricted to separated segments.
+**Open [the demo](firehose_demo/demo.html) directly, or watch [the comparison GIF](firehose_demo/comparison.gif).**
 
-The default allows **one construction before each fire update, with no episode-wide
-material cap**. Burning, previously burned and already cleared cells are ineligible.
-Construction sacrifices vegetation, so both burning and clearing count as damage.
-There is no extinguishing action. Firebreaks work by removing fuel from actual
-spread paths.
-
-This is a **spatially coupled, single-construction CRMAB extension**, equivalently
-a constrained factored MDP. Nearby arms interact through fire spread. We do not
-claim independent-arm transitions, indexability or guaranteed DQN optimality.
-
-## Start here
-
-- [Beginner's guide](docs/BEGINNERS_GUIDE.md): RL, CRMAB, DQN and the code.
-- [Mathematical formulation](docs/FORMULATION.md): states, constraints, physics,
-  rewards and the precise Firehose placement adaptation.
-- [Code map](docs/ARCHITECTURE.md) and [change audit](docs/AUDIT.md).
-- [Validation](docs/VALIDATION.md): barrier checks, tests and measured learning.
-- [Simple demo](demo/SIMPLE_DEMO.md): a short Python script producing a GIF.
-
-The initial learning diagnostic uses an **8×8** forest with fixed ignition and
-wind, with independent stochastic spread fields for training, validation and test.
-The general default is **12×12** with wind and ignition varied between episodes.
-No protected settlement is included by default; the older asset scenario remains
-an optional configuration.
-
-## Run from this directory
+The public trained models are used for inference. They are the authors' weights,
+not models trained by this project. Harvesting permanently treats a selected cell
+and can extinguish a burning cell. Repeated treatments can form a barrier.
 
 ```bash
-source .venv/bin/activate
-python -m pytest -q
-python examples/one_allocation.py
-python examples/connected_barrier.py
-python demo/simple_demo.py --policy wind_heuristic
-
-# Fixed scenario first: 3 learning seeds, 10,000 transitions per DQN variant/seed.
-wildfire-crmab run --config configs/fixed.json --output artifacts/my-fixed-run
-
-# Broader variable-wind protocol; review fixed-scenario learning before running.
-wildfire-crmab run --config configs/pilot.json --output artifacts/my-cell-pilot
+cd /home/d1nu/LEBRON/BLOND/research
+.venv/bin/python -m firehose_reproduction setup
+.venv/bin/python -m firehose_reproduction record
+.venv/bin/python -m firehose_reproduction demo
 ```
 
-A run requires a new output directory. It saves configuration, source snapshots,
-checkpoints, training/validation logs, held-out outcomes and a comparison report.
-Checkpoints support inference, not interrupted-training resume. For a fresh setup:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-python -m pip install -e '.[dev]'
-```
-
-The existing workspace has the dependencies installed. `requirements-cpu.lock.txt`
-records the previously verified core package versions.
-
-## How the decisions work
-
-For grid side `n`, arm ID is `row*n + column`. With capacity one, action 0 means
-wait and action `1 + arm_id` constructs that cell. Thus the default 12×12 problem
-has **144 arms and 145 allocation actions**; the 8×8 diagnostic has 64 and 65.
-A feasibility mask is applied to DQN exploration, greedy selection and learning
-targets. The environment also rejects invalid actions before changing anything.
-
-Optional capacity greater than one uses exact simultaneous subsets: every selected
-cell is cleared before one spread update. Oversized catalogues are rejected,
-never silently replaced with actions that advance fire between selections.
-Optional finite episode budgets are also supported; JSON `null` means no cap.
-
-Eight-neighbour spread can pass diagonally through a missing corner. Connected
-placements are possible, but a line must actually separate spread paths and must
-be built before the fire arrives. [The barrier example](examples/connected_barrier.py)
-compares a manually chosen sequence with waiting under identical random draws.
-It demonstrates geometry and timing, not a learned or universally successful rule.
-
-## Components
+Open **http://127.0.0.1:8765**. The demo compares recorded neural-policy and baseline
+episodes produced by the real simulator. Playback does not train the model.
 
 ```text
-configs/                 fixed diagnostic, smoke, variable-wind runs; legacy/ settings
-src/wildfire_crmab/
-  environment/           arm geometry, eligibility, allocations, scenarios, spread
-  agents/                DQN network, replay, masks, checkpoints, placement baselines
-  training/              learning loop and validation-only checkpoint selection
-  evaluation/            matched scenarios, policy rollouts, statistics, reports
-  config.py, cli.py      experiment validation and commands
-examples/                short executable examples
-demo/                   simple animation and optional plain browser replay
-docs/                   formulation, explanations, code map and checks
-tests/                  environment, agents, learning, evaluation and demo checks
-results/                compact measured runs; older segment runs clearly labelled
-artifacts/              full local runs with weights and source snapshots
+src/firehose_reproduction/
+  setup.py, paths.py     pinned source/dependencies and simulator build
+  environment.py        original Firehose environment with Gymnasium compatibility
+  models.py             original CNN and verified published checkpoint tensors
+  training.py           original Maskable PPO training recipe
+  evaluation.py         policy and baseline evaluation
+  recording.py          real episode recordings and offline demo export
+  cli.py                setup, record and demo commands
+firehose_demo/          plain browser UI and real recorded trajectories
+tests/firehose_reproduction/  simulator and model compatibility checks
+artifacts/             upstream source, native dependencies and full outputs
+archive/previous_project/    superseded work, retained separately
 ```
 
-Baselines are no construction, random feasible placement, immediate fire-threat
-placement and a wind-aware threat rule. They use observations and public model
-parameters, never future spread draws. Wind-aware and wind-unaware DQN run in the
-**same wind-driven simulator**; only the explicit wind observation is withheld.
-Removing wind from the physics is a separate ablation.
+Reference: [original source](https://github.com/aidan-curtis/firehose), pinned to
+`e49a52a9a987a1585d25ddca2f711222ca500ffb`.
+See [technical notes](docs/FIREHOSE_REPRODUCTION.md) for compatibility changes,
+checkpoint provenance and reproduction limits. The MIT-letter experiment is not
+required for this demo. Matching the paper's numerical results is not assumed.
 
-The old separated-segment results in `results/pilot/` and `results/smoke/` are
-historical. They do not measure the new cell model. Explicit replay configurations
-are under `configs/legacy/`. This simulator is synthetic and uncalibrated;
-containment tests and a working training loop do not establish DQN superiority.
+Upstream source and derived CNN code retain the GPL-3.0 license in `LICENSE`.
+
+Fresh checkout: create a virtual environment, install the project with `pip install -e '.[dev]'`, then run `firehose setup`. A C++ compiler, make and ar are required. `requirements.lock.txt` records the tested Python packages.
+
+To train a fresh policy with the original architecture and PPO recipe:
+
+```bash
+firehose train --output artifacts/my-training --steps 5000000
+```
+
+Current demo measurements are in [results/README.md](results/README.md).
+
+The demo now includes both **Sub20x20** and **Sub40x40**, each with its matching published checkpoint and four baselines. Select the map in **Map / neural checkpoint**.

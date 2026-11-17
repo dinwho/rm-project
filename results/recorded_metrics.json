@@ -1,0 +1,223 @@
+{
+  "provenance": {
+    "source": "https://github.com/aidan-curtis/firehose",
+    "commit": "e49a52a9a987a1585d25ddca2f711222ca500ffb",
+    "simulator": "Original Cell2Fire C++",
+    "weights": "Published upstream weights; no local training claimed",
+    "state_note": "Original state=1 combines burning and burned cells. Red counts are fire-affected cells, not a verified active-fire count.",
+    "scope": "Fixed ignitions: Sub20x20=372, Sub40x40=909. These episodes are illustrations, not a reproduction of paper-wide statistics.",
+    "data_sha256_note": "data.json contains full recorded RGB frames and actions"
+  },
+  "episodes": [
+    {
+      "id": "20x20-fixed-ppo-maskable-ppo-s123",
+      "label": "Published Maskable PPO",
+      "policy": "ppo",
+      "map": "Sub20x20",
+      "seed": 123,
+      "ignition": 372,
+      "warmup_steps": 20,
+      "physics_steps_per_action": 8,
+      "checkpoint": "20x20-fixed-ppo-maskable.zip",
+      "checkpoint_sha256": "ec9475239abb141ab627e6e3d07f14e49da2b7a71020699fed55504db0bf9a5c",
+      "training_steps": 5013504,
+      "metrics": {
+        "reward": -102.39999999999999,
+        "fire_affected_cells": 96,
+        "harvested_cells": 58,
+        "decisions": 58
+      },
+      "status": "Simulator finished",
+      "runtime_seconds": 0.40011839399812743
+    },
+    {
+      "id": "20x20-fixed-ppo-maskable-no_intervention-s123",
+      "label": "No Intervention",
+      "policy": "no_intervention",
+      "map": "Sub20x20",
+      "seed": 123,
+      "ignition": 372,
+      "warmup_steps": 20,
+      "physics_steps_per_action": 8,
+      "checkpoint": null,
+      "checkpoint_sha256": null,
+      "training_steps": null,
+      "metrics": {
+        "reward": -224.07499999999996,
+        "fire_affected_cells": 217,
+        "harvested_cells": 0,
+        "decisions": 58
+      },
+      "status": "Simulator finished",
+      "runtime_seconds": 0.31075682502705604
+    },
+    {
+      "id": "20x20-fixed-ppo-maskable-random-s123",
+      "label": "Random",
+      "policy": "random",
+      "map": "Sub20x20",
+      "seed": 123,
+      "ignition": 372,
+      "warmup_steps": 20,
+      "physics_steps_per_action": 8,
+      "checkpoint": null,
+      "checkpoint_sha256": null,
+      "training_steps": null,
+      "metrics": {
+        "reward": -201.75,
+        "fire_affected_cells": 186,
+        "harvested_cells": 52,
+        "decisions": 58
+      },
+      "status": "Simulator finished",
+      "runtime_seconds": 0.32104633102426305
+    },
+    {
+      "id": "20x20-fixed-ppo-maskable-min_l2-s123",
+      "label": "Min L2",
+      "policy": "min_l2",
+      "map": "Sub20x20",
+      "seed": 123,
+      "ignition": 372,
+      "warmup_steps": 20,
+      "physics_steps_per_action": 8,
+      "checkpoint": null,
+      "checkpoint_sha256": null,
+      "training_steps": null,
+      "metrics": {
+        "reward": -153.97499999999997,
+        "fire_affected_cells": 124,
+        "harvested_cells": 57,
+        "decisions": 58
+      },
+      "status": "Simulator finished",
+      "runtime_seconds": 0.2999575500143692
+    },
+    {
+      "id": "20x20-fixed-ppo-maskable-max_l2-s123",
+      "label": "Max L2",
+      "policy": "max_l2",
+      "map": "Sub20x20",
+      "seed": 123,
+      "ignition": 372,
+      "warmup_steps": 20,
+      "physics_steps_per_action": 8,
+      "checkpoint": null,
+      "checkpoint_sha256": null,
+      "training_steps": null,
+      "metrics": {
+        "reward": -176.52500000000006,
+        "fire_affected_cells": 157,
+        "harvested_cells": 57,
+        "decisions": 58
+      },
+      "status": "Simulator finished",
+      "runtime_seconds": 0.315821670985315
+    },
+    {
+      "id": "40x40-fixed-ppo-maskable-ppo-s123",
+      "label": "Published Maskable PPO",
+      "policy": "ppo",
+      "map": "Sub40x40",
+      "seed": 123,
+      "ignition": 909,
+      "warmup_steps": 25,
+      "physics_steps_per_action": 5,
+      "checkpoint": "40x40-fixed-ppo-maskable.zip",
+      "checkpoint_sha256": "caaa82a68810ecdebfe48a4886ed215c76d090d7777b57bb1a6a3bacbe3dc1dc",
+      "training_steps": 10027008,
+      "metrics": {
+        "reward": -56.51874999999998,
+        "fire_affected_cells": 149,
+        "harvested_cells": 79,
+        "decisions": 79
+      },
+      "status": "Simulator finished",
+      "runtime_seconds": 0.947096613002941
+    },
+    {
+      "id": "40x40-fixed-ppo-maskable-no_intervention-s123",
+      "label": "No Intervention",
+      "policy": "no_intervention",
+      "map": "Sub40x40",
+      "seed": 123,
+      "ignition": 909,
+      "warmup_steps": 25,
+      "physics_steps_per_action": 5,
+      "checkpoint": null,
+      "checkpoint_sha256": null,
+      "training_steps": null,
+      "metrics": {
+        "reward": -126.83749999999998,
+        "fire_affected_cells": 394,
+        "harvested_cells": 0,
+        "decisions": 79
+      },
+      "status": "Simulator finished",
+      "runtime_seconds": 0.5450179990148172
+    },
+    {
+      "id": "40x40-fixed-ppo-maskable-random-s123",
+      "label": "Random",
+      "policy": "random",
+      "map": "Sub40x40",
+      "seed": 123,
+      "ignition": 909,
+      "warmup_steps": 25,
+      "physics_steps_per_action": 5,
+      "checkpoint": null,
+      "checkpoint_sha256": null,
+      "training_steps": null,
+      "metrics": {
+        "reward": -122.98125000000005,
+        "fire_affected_cells": 376,
+        "harvested_cells": 77,
+        "decisions": 79
+      },
+      "status": "Simulator finished",
+      "runtime_seconds": 0.61098243604647
+    },
+    {
+      "id": "40x40-fixed-ppo-maskable-min_l2-s123",
+      "label": "Min L2",
+      "policy": "min_l2",
+      "map": "Sub40x40",
+      "seed": 123,
+      "ignition": 909,
+      "warmup_steps": 25,
+      "physics_steps_per_action": 5,
+      "checkpoint": null,
+      "checkpoint_sha256": null,
+      "training_steps": null,
+      "metrics": {
+        "reward": -88.25624999999998,
+        "fire_affected_cells": 232,
+        "harvested_cells": 78,
+        "decisions": 79
+      },
+      "status": "Simulator finished",
+      "runtime_seconds": 0.6489071060204878
+    },
+    {
+      "id": "40x40-fixed-ppo-maskable-max_l2-s123",
+      "label": "Max L2",
+      "policy": "max_l2",
+      "map": "Sub40x40",
+      "seed": 123,
+      "ignition": 909,
+      "warmup_steps": 25,
+      "physics_steps_per_action": 5,
+      "checkpoint": null,
+      "checkpoint_sha256": null,
+      "training_steps": null,
+      "metrics": {
+        "reward": -78.46874999999999,
+        "fire_affected_cells": 218,
+        "harvested_cells": 78,
+        "decisions": 79
+      },
+      "status": "Simulator finished",
+      "runtime_seconds": 0.9773723619873635
+    }
+  ]
+}

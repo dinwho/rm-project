@@ -1,0 +1,38 @@
+{
+  "source_commit": "e49a52a9a987a1585d25ddca2f711222ca500ffb",
+  "source_repository": "https://github.com/aidan-curtis/firehose",
+  "checkpoint": "20x20-fixed-ppo-maskable.zip",
+  "checkpoint_sha256": "ec9475239abb141ab627e6e3d07f14e49da2b7a71020699fed55504db0bf9a5c",
+  "recording_sha256": "e8e49a7ce7bc6dc74d227cb423219bfea9e17cf2dce71f5e181571c8160969c7",
+  "source_hashes": {
+    "src/firehose_reproduction/models.py": "a6829a483d3c707aca6e3e4eed4dece379d1f2f676c1356c9b079ba0c92cbeb4",
+    "src/firehose_reproduction/__init__.py": "5266bd89e2c2030cd5cd42aa788cb4c9f37eccdeece10860a40e48cf3efa5dd0",
+    "src/firehose_reproduction/cli.py": "565eba7bf1f426ccd787faf5a6510d4ccc5052ce7b2bf60d06046ac475cecb2e",
+    "src/firehose_reproduction/__main__.py": "cf7390a2508a0fcad4777a4a629fc5212ab655cb45845975995f835676a834e3",
+    "src/firehose_reproduction/recording.py": "00aa32ed839bf5ff5c15a153ea16cb728b613cf7b5a55e1fb51a4f55fbcf29b1",
+    "src/firehose_reproduction/paths.py": "86e86f3a5baea3c4e05facd088b66f1f12ec728ea4e9f83163005ebfb9219512",
+    "src/firehose_reproduction/setup.py": "b5325aed52a7969fac77acdac439b672c4ff02bd8f9cfb4454a4282d49581856",
+    "src/firehose_reproduction/environment.py": "786df19e4fd4cf7d249606f388229e87e0f431608e767e1cbd0f6e7319ea8d3d",
+    "src/firehose_reproduction/animation.py": "d0b14e8b27db87bba6ea422188b6ea290deb28b517aa39e7187e70eea2ee3170",
+    "src/firehose_reproduction/training.py": "67d489a2b3233552f7376ed7ab1e38a6d81c59aad49b04cf7eb47ff12f591de8",
+    "src/firehose_reproduction/evaluation.py": "966366849a46e2c979f0378fb253d2386cca7acefee63e54c24fdafbd54dd1e0"
+  },
+  "claim": "Original-code example with published weights; no claim of paper-wide numerical reproduction.",
+  "validation": {
+    "pytest": "9 passed",
+    "browser": "live and offline Chromium checks passed, including390px mobile layout",
+    "training": "32-step smoke test only; demo uses published weights"
+  },
+  "checkpoints": [
+    {
+      "map": "Sub20x20",
+      "name": "20x20-fixed-ppo-maskable.zip",
+      "sha256": "ec9475239abb141ab627e6e3d07f14e49da2b7a71020699fed55504db0bf9a5c"
+    },
+    {
+      "map": "Sub40x40",
+      "name": "40x40-fixed-ppo-maskable.zip",
+      "sha256": "caaa82a68810ecdebfe48a4886ed215c76d090d7777b57bb1a6a3bacbe3dc1dc"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+:root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #252525; background: #fafafa; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 1120px; margin: 0 auto; padding: 30px 24px 48px; }
+h1 { font-size: 1.8rem; font-weight: 650; margin: 0 0 8px; letter-spacing: -.03em; }
+h2 { font-size: 1.1rem; margin: 0 0 5px; font-weight: 650; }
+p { line-height: 1.5; margin: 8px 0; }
+header { margin-bottom: 24px; }
+.muted, .subtitle { color: #626262; font-size: .9rem; }
+.subtitle { min-height: 2.7em; margin-top: 0; overflow-wrap: anywhere; }
+.settings, .playback { display: flex; gap: 14px; align-items: end; flex-wrap: wrap; }
+.settings { border-top: 1px solid #d4d4d4; padding-top: 18px; }
+.settings label:first-child { flex: 1; min-width: min(100%, 300px); }
+label { display: flex; flex-direction: column; gap: 5px; font-size: .85rem; color: #444; }
+select, button { min-height: 36px; font: inherit; color: #222; background: #fff; border: 1px solid #b6b6b6; border-radius: 3px; padding: 6px 10px; }
+select { max-width: 100%; }
+button { cursor: pointer; font-size: .9rem; }
+button:hover:enabled { background: #ededed; }
+button:disabled { cursor: default; color: #949494; }
+button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid #245b9b; outline-offset: 3px; }
+.playback { margin: 21px 0; align-items: center; gap: 8px; }
+.playback > label:last-child { margin-left: 5px; }
+.timeline-label { flex: 1; min-width: 110px; display: grid; grid-template-columns: auto 1fr; column-gap: 6px; }
+.timeline-label output { color: #222; }
+.timeline-label input { grid-column: 1 / -1; width: 100%; margin: 3px 0; accent-color: #444; }
+.panels { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; }
+article { min-width: 0; }
+canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; background: #e9e9e9; border: 1px solid #bdbdbd; }
+.state { font-size: .85rem; min-height: 1.5em; }
+.numbers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; border-top: 1px solid #d4d4d4; border-bottom: 1px solid #d4d4d4; padding: 12px 0; margin: 10px 0; }
+dt { font-size: .75rem; color: #626262; margin-bottom: 5px; }
+dd { font-size: 1.1rem; font-variant-numeric: tabular-nums; margin: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: .8rem; margin: 25px 0 12px; }
+.legend span { display: flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border: 1px solid #aaa; }
+.fire { background: #f00; }.harvest { background: rgb(28,163,236); }.ignition { background: #f0f; }.vegetation { background: #41874b; }.selected { background: #fff; border: 2px solid #111 !important; }
+.explanation { font-size: .9rem; max-width: 920px; margin-bottom: 25px; }
+details { border-top: 1px solid #d4d4d4; padding: 14px 0; }
+summary { cursor: pointer; font-weight: 550; }
+details > p { font-size: .9rem; }
+.table-scroll { overflow-x: auto; margin-top: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: .82rem; text-align: left; white-space: nowrap; }
+th { font-weight: 600; color: #555; }
+th, td { padding: 9px 10px 9px 0; border-bottom: 1px solid #e3e3e3; font-variant-numeric: tabular-nums; }
+tr.current td { background: #eee; }
+.mono, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .78rem; overflow-wrap: anywhere; }
+pre { white-space: pre-wrap; background: #f0f0f0; padding: 12px; line-height: 1.5; }
+#message { padding: 12px 0; }
+[hidden] { display: none !important; }
+@media (max-width: 650px) { main { padding: 22px 16px 36px; }.panels { grid-template-columns: minmax(0, 1fr); gap: 26px; }.settings { gap: 12px; }.settings label:first-child { flex-basis: 100%; }.settings label:nth-child(3) { flex: 1; min-width: 0; }.playback { gap: 7px; }.timeline-label { flex-basis: 100%; order: 2; }.playback > label:last-child { margin-left: auto; } .subtitle { min-height: 0; } .numbers { grid-template-columns: repeat(4, 1fr); } }

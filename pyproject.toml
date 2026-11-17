@@ -3,21 +3,21 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "wildfire-crmab"
+name = "firehose-reproduction"
 version = "0.1.0"
-description = "Spatially coupled CRMAB firebreak allocation with masked DQN"
+description = "Original Firehose simulator and trained CNN policies"
 requires-python = ">=3.11"
-dependencies = ["numpy>=2.1,<3", "torch>=2.6,<3", "gymnasium>=1.0,<2", "matplotlib>=3.9,<4"]
+dependencies = ["gym==0.26.2", "pandas>=2,<4", "opencv-python-headless>=4,<6", "stable-baselines3==2.9.2", "sb3-contrib==2.9.2", "numpy>=2.1,<3", "torch>=2.8,<3", "gymnasium>=1.0,<2", "matplotlib>=3.9,<4"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10"]
 
 [project.scripts]
-wildfire-crmab = "wildfire_crmab.cli:main"
+firehose = "firehose_reproduction.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/firehose_reproduction"]
 pythonpath = ["src"]

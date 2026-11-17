@@ -1,0 +1,29 @@
+{
+  "name": "firehose_inspired_24x24",
+  "environment": {
+    "grid_size": 24,
+    "placement_mode": "cells",
+    "capacity": 1,
+    "max_steps": 48,
+    "wind_physics": true
+  },
+  "training": {
+    "steps": 30000,
+    "seeds": [11, 22, 33],
+    "budgets": [null],
+    "batch_size": 64,
+    "replay_capacity": 20000,
+    "learning_starts": 1000,
+    "train_every": 4,
+    "target_every": 1000,
+    "validation_every": 3000,
+    "validation_worlds": 16,
+    "gamma": 0.99,
+    "learning_rate": 0.0003,
+    "variants": ["dqn"]
+  },
+  "evaluation": {
+    "worlds": 80,
+    "bootstrap_samples": 2000
+  }
+}
